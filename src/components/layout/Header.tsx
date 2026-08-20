@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef, useMemo } from 'react';
 import { 
-  Search, Bell, Plus, Calendar, X, WifiOff, Globe, ChevronDown
+  Search, Bell, Plus, Calendar, X, WifiOff, Globe, ChevronDown, Bike, Users, DollarSign, FileText
 } from 'lucide-react';
 import { DateFilterRange, NotificationItem } from '../../types';
 import { dbStore } from '../../services/db';
@@ -116,6 +116,52 @@ export const Header: React.FC<HeaderProps> = ({
     dbStore.saveCollection('notifications', updated);
   };
 
+  // Mock Search Results - will be filtered by searchQuery
+  const mockSearchResults = useMemo(() => {
+    const allResults: { 
+      vehicles: Array<{ id: string; name: string; icon: React.FC<any> }>;
+      clients: Array<{ id: string; name: string; icon: React.FC<any> }>;
+      expenses: Array<{ id: string; name: string; icon: React.FC<any> }>;
+      reports: Array<{ id: string; name: string; icon: React.FC<any> }>;
+    } = {
+      vehicles: [
+        { id: '1', name: 'BMW R 1250 GS', icon: Bike },
+        { id: '2', name: 'Yamaha Ténéré 700', icon: Bike },
+        { id: '3', name: 'SYM Fiddle 50cc', icon: Bike },
+        { id: '4', name: 'Honda CB500F', icon: Bike },
+        { id: '5', name: 'KTM 390 Duke', icon: Bike },
+      ],
+      clients: [
+        { id: '101', name: 'Ahmed Hassan', icon: Users },
+        { id: '102', name: 'Marie Dubois', icon: Users },
+        { id: '103', name: 'Carlos Rodriguez', icon: Users },
+      ],
+      expenses: [
+        { id: '201', name: 'Fuel - May 2026', icon: DollarSign },
+        { id: '202', name: 'Maintenance - April', icon: DollarSign },
+        { id: '203', name: 'Insurance Premium', icon: DollarSign },
+      ],
+      reports: [
+        { id: '301', name: 'Revenue Summary Q2', icon: FileText },
+        { id: '302', name: 'Fleet Utilization Report', icon: FileText },
+      ],
+    };
+
+    if (!searchQuery.trim()) return null;
+
+    const query = searchQuery.toLowerCase();
+    const filtered: { [key: string]: Array<{ id: string; name: string; icon: React.FC<any> }> } = {};
+
+    Object.entries(allResults).forEach(([category, items]) => {
+      const matches = items.filter((item) => item.name.toLowerCase().includes(query));
+      if (matches.length > 0) {
+        filtered[category] = matches;
+      }
+    });
+
+    return Object.keys(filtered).length > 0 ? filtered : null;
+  }, [searchQuery]);
+
   return (
     <div className="sticky top-0 z-30 flex flex-col w-full">
       {/* Offline Alert Banner */}
@@ -137,25 +183,60 @@ export const Header: React.FC<HeaderProps> = ({
 
         {/* Global Search Bar (Desktop Always, Mobile Toggle) */}
         <div className={`${showMobileSearch ? 'flex absolute inset-x-2 z-50 bg-[#1C1C1C] p-2 rounded-xl border border-[#3D3D3D]' : 'hidden md:flex'} relative items-center w-full max-w-md`}>
-          <Search className="absolute left-3.5 w-4 h-4 text-zinc-400" />
+          <Search className="absolute left-3.5 w-4 h-4 text-zinc-400 pointer-events-none" />
           <input
             type="text"
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
             placeholder={t('common.search_placeholder')}
-            className="w-full pl-10 pr-8 py-2 md:py-2.5 rounded-xl bg-[#262626] border border-[#333333] text-xs md:text-sm text-[#F4F4F2] placeholder-zinc-500 focus:outline-none focus:border-[#D4A017] transition-all"
+            className="w-full pl-10 pr-10 py-2 md:py-2.5 rounded-xl bg-[#262626] border border-[#333333] text-xs md:text-sm text-[#F4F4F2] placeholder-zinc-500 focus:outline-none focus:border-[#D4A017] focus:bg-[#2A2A2A] transition-all"
             autoFocus={showMobileSearch}
           />
-          {(searchQuery || showMobileSearch) && (
+          {searchQuery && (
             <button
-              onClick={() => {
-                setSearchQuery('');
-                setShowMobileSearch(false);
-              }}
-              className="absolute right-3 text-zinc-400 hover:text-white"
+              onClick={() => setSearchQuery('')}
+              className="absolute right-3 text-zinc-400 hover:text-white hover:bg-zinc-700/30 p-1 rounded transition-all duration-200 ease-out"
+              title="Clear search"
+              type="button"
             >
               <X className="w-4 h-4" />
             </button>
+          )}
+
+          {/* Search Results Dropdown */}
+          {mockSearchResults && (
+            <div className="absolute top-full mt-2 w-full bg-[#1C1C1C] border border-zinc-800 rounded-xl shadow-2xl shadow-black/50 z-50 animate-in fade-in slide-in-from-top-2 duration-200">
+              <div className="max-h-96 overflow-y-auto custom-scrollbar">
+                {Object.entries(mockSearchResults).map(([category, items]: [string, any]) => (
+                  <div key={category}>
+                    {/* Category Header */}
+                    <div className="px-4 py-2 text-[10px] font-bold uppercase tracking-widest text-[#D4A017] bg-[#0F0F0F]/50">
+                      {category === 'vehicles' && '🏍️ Vehicles'}
+                      {category === 'clients' && '👥 Clients'}
+                      {category === 'expenses' && '💰 Expenses'}
+                      {category === 'reports' && '📄 Reports'}
+                    </div>
+
+                    {/* Category Items */}
+                    {(items as Array<{ id: string; name: string; icon: React.FC<any> }>).map((item, idx) => {
+                      const IconComponent = item.icon;
+                      return (
+                        <div
+                          key={item.id}
+                          onClick={() => setSearchQuery('')}
+                          className={`p-3 flex items-center gap-3 cursor-pointer text-gray-300 hover:bg-white/5 transition-colors ${
+                            idx < items.length - 1 ? 'border-b border-zinc-800/50' : ''
+                          }`}
+                        >
+                          <IconComponent className="w-4 h-4 text-[#D4A017] shrink-0" />
+                          <span className="text-xs md:text-sm text-zinc-200">{item.name}</span>
+                        </div>
+                      );
+                    })}
+                  </div>
+                ))}
+              </div>
+            </div>
           )}
         </div>
 
