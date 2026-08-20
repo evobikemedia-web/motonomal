@@ -1020,7 +1020,7 @@ export const ExecutiveDashboard: React.FC<ExecutiveDashboardProps> = ({
       {/* ---------------------------------------------------- */}
       {/* 5. MANAGEMENT TARGETS VS ACTUAL PROGRESS             */}
       {/* ---------------------------------------------------- */}
-      <div className="p-6 rounded-2xl bg-[#181818] border border-[#2D2D2D] shadow-xl space-y-4">
+      <div className="p-6 bg-[#1C1C1C] rounded-xl border border-zinc-800 shadow-xl space-y-4">
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-2">
             <Target className="w-5 h-5 text-[#D4A017]" />
@@ -1036,73 +1036,76 @@ export const ExecutiveDashboard: React.FC<ExecutiveDashboardProps> = ({
 
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 text-xs font-mono">
           {/* Monthly Revenue Target */}
-          <div className="p-4 rounded-xl bg-[#202020] border border-[#2D2D2D] space-y-2.5">
+          <div className="p-4 bg-[#1C1C1C] rounded-xl border border-zinc-800 space-y-2.5">
             <div className="flex justify-between items-center text-zinc-400">
               <span>Monthly Revenue Target</span>
-              <span className="font-bold text-[#F5D77A]">{calculateTargetAchievement(totalRevenue, targets.monthlyRevenueTarget)}%</span>
+              <span className="font-bold text-[#D4A017]">{calculateTargetAchievement(totalRevenue, targets.monthlyRevenueTarget)}%</span>
             </div>
-            <div className="w-full bg-zinc-800 h-2.5 rounded-full overflow-hidden">
+            <div className="w-full bg-[#2D2D2D] h-2 rounded-full overflow-hidden">
               <div
-                className={`h-full rounded-full bg-gradient-to-r ${getProgressBarTone(calculateTargetAchievement(totalRevenue, targets.monthlyRevenueTarget))} transition-all`}
+                className="h-full rounded-full bg-[#D4A017] transition-all duration-500"
                 style={{ width: `${Math.min(100, calculateTargetAchievement(totalRevenue, targets.monthlyRevenueTarget))}%` }}
               />
             </div>
             <div className="flex justify-between text-[11px] pt-1">
-              <span className="text-white font-semibold">Actual: {formatCurrency(totalRevenue, currency)}</span>
-              <span className="text-zinc-400">Target: {formatCurrency(targets.monthlyRevenueTarget, currency)}</span>
+              <span className="text-gray-300 font-semibold">Actual: {formatCurrency(totalRevenue, currency)}</span>
+              <span className="text-zinc-500">Target: {formatCurrency(targets.monthlyRevenueTarget, currency)}</span>
             </div>
           </div>
 
           {/* Fleet Utilization Target */}
-          <div className="p-4 rounded-xl bg-[#202020] border border-[#2D2D2D] space-y-2.5">
+          <div className="p-4 bg-[#1C1C1C] rounded-xl border border-zinc-800 space-y-2.5">
             <div className="flex justify-between items-center text-zinc-400">
               <span>Utilization Target</span>
-              <span className="font-bold text-[#E7C5FF]">{calculateTargetAchievement(utilizationRes.utilizationRate, targets.fleetUtilizationTarget)}%</span>
+              <span className="font-bold text-emerald-500">{calculateTargetAchievement(utilizationRes.utilizationRate, targets.fleetUtilizationTarget)}%</span>
             </div>
-            <div className="w-full bg-zinc-800 h-2.5 rounded-full overflow-hidden">
+            <div className="w-full bg-[#2D2D2D] h-2 rounded-full overflow-hidden">
               <div
-                className={`h-full rounded-full bg-gradient-to-r ${getProgressBarTone(calculateTargetAchievement(utilizationRes.utilizationRate, targets.fleetUtilizationTarget))} transition-all`}
+                className={`h-full rounded-full transition-all duration-500 ${
+                  calculateTargetAchievement(utilizationRes.utilizationRate, targets.fleetUtilizationTarget) < 70 ? 'bg-rose-600' : 'bg-emerald-600'
+                }`}
                 style={{ width: `${Math.min(100, calculateTargetAchievement(utilizationRes.utilizationRate, targets.fleetUtilizationTarget))}%` }}
               />
             </div>
             <div className="flex justify-between text-[11px] pt-1">
-              <span className="text-white font-semibold">Actual: {utilizationRes.utilizationRate}%</span>
-              <span className="text-zinc-400">Target: {targets.fleetUtilizationTarget}%</span>
+              <span className="text-gray-300 font-semibold">Actual: {utilizationRes.utilizationRate}%</span>
+              <span className="text-zinc-500">Target: {targets.fleetUtilizationTarget}%</span>
             </div>
           </div>
 
           {/* Profit Margin Target */}
-          <div className="p-4 rounded-xl bg-[#202020] border border-[#2D2D2D] space-y-2.5">
+          <div className="p-4 bg-[#1C1C1C] rounded-xl border border-zinc-800 space-y-2.5">
             <div className="flex justify-between items-center text-zinc-400">
               <span>Profit Margin Target</span>
-              <span className="font-bold text-[#A7F3D0]">{calculateTargetAchievement(profitMargin, targets.profitMarginTarget)}%</span>
+              <span className="font-bold text-[#D4A017]">{calculateTargetAchievement(profitMargin, targets.profitMarginTarget)}%</span>
             </div>
-            <div className="w-full bg-zinc-800 h-2.5 rounded-full overflow-hidden">
+            <div className="w-full bg-[#2D2D2D] h-2 rounded-full overflow-hidden">
               <div
-                className={`h-full rounded-full bg-gradient-to-r ${getProgressBarTone(calculateTargetAchievement(profitMargin, targets.profitMarginTarget))} transition-all`}
+                className="h-full rounded-full bg-[#D4A017] transition-all duration-500"
                 style={{ width: `${Math.min(100, calculateTargetAchievement(profitMargin, targets.profitMarginTarget))}%` }}
               />
             </div>
             <div className="flex justify-between text-[11px] pt-1">
-              <span className="text-white font-semibold">Actual: {profitMargin.toFixed(1)}%</span>
-              <span className="text-zinc-400">Target: {targets.profitMarginTarget}%</span>
+              <span className="text-gray-300 font-semibold">Actual: {profitMargin.toFixed(1)}%</span>
+              <span className="text-zinc-500">Target: {targets.profitMarginTarget}%</span>
             </div>
           </div>
 
           {/* Investment Recovery */}
-          <div className="p-4 rounded-xl bg-[#202020] border border-[#2D2D2D] space-y-2.5">
+          <div className="p-4 bg-[#1C1C1C] rounded-xl border border-zinc-800 space-y-2.5">
             <div className="flex justify-between items-center text-zinc-400">
               <span>Fleet Investment Recovery</span>
-              <span className="font-bold text-[#A5D8FF]">{investmentRecoveryPercent.toFixed(1)}%</span>
+              <span className="font-bold text-emerald-500">{investmentRecoveryPercent.toFixed(1)}%</span>
             </div>
-            <div className="w-full bg-zinc-800 h-2.5 rounded-full overflow-hidden">
+            <div className="w-full bg-[#2D2D2D] h-2 rounded-full overflow-hidden">
               <div
-                className={`h-full rounded-full bg-gradient-to-r ${getProgressBarTone(Math.min(100, investmentRecoveryPercent))} transition-all`}
+                className="h-full rounded-full bg-emerald-600 transition-all duration-500"
                 style={{ width: `${Math.min(100, investmentRecoveryPercent)}%` }}
               />
             </div>
             <div className="flex justify-between text-[11px] pt-1">
-              <span className="text-white font-semibold">Remaining: {formatCurrency(remainingInvestmentRecovery, currency)}</span>
+              <span className="text-gray-300 font-semibold">Actual: {formatCurrency(totalRevenue, currency)}</span>
+              <span className="text-zinc-500">Remaining: {formatCurrency(remainingInvestmentRecovery, currency)}</span>
             </div>
           </div>
         </div>
@@ -1111,12 +1114,12 @@ export const ExecutiveDashboard: React.FC<ExecutiveDashboardProps> = ({
       {/* ---------------------------------------------------- */}
       {/* 6. MOTORCYCLE PROFITABILITY & DECISION ENGINE MATRIX */}
       {/* ---------------------------------------------------- */}
-      <div className="p-6 rounded-2xl bg-[#181818] border border-[#2D2D2D] shadow-xl space-y-4">
+      <div className="p-6 bg-[#1C1C1C] rounded-xl border border-zinc-800 shadow-xl space-y-4">
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
           <div>
             <h3 className="text-base font-bold text-white flex items-center gap-2">
               <span>Vehicle Decision Engine & Profitability Matrix</span>
-              <span className="text-xs px-2 py-0.5 rounded bg-[#D4A017]/20 text-[#D4A017] font-mono">
+              <span className="text-xs px-2 py-0.5 rounded bg-[#D4A017]/10 text-[#D4A017] border border-[#D4A017]/20 font-mono">
                 KEEP / MONITOR / SELL
               </span>
             </h3>
@@ -1135,50 +1138,50 @@ export const ExecutiveDashboard: React.FC<ExecutiveDashboardProps> = ({
 
         <div className="overflow-x-auto custom-scrollbar">
           <table className="w-full text-xs text-left border-collapse">
-            <thead>
-              <tr className="bg-[#121212] text-zinc-400 border-b border-[#2D2D2D]">
-                <th className="p-3 font-bold">Motorcycle Asset</th>
-                <th className="p-3 font-bold">Status</th>
-                <th className="p-3 font-bold">Investment</th>
-                <th className="p-3 font-bold">Revenue</th>
-                <th className="p-3 font-bold">Operating Cost</th>
-                <th className="p-3 font-bold">Acc. Depreciation</th>
-                <th className="p-3 font-bold">Net Profit</th>
-                <th className="p-3 font-bold">ROI %</th>
-                <th className="p-3 font-bold">Est. Market Val</th>
-                <th className="p-3 font-bold text-center">Decision Verdict</th>
+            <thead className="bg-[#1A1A1A]">
+              <tr className="border-b border-zinc-800">
+                <th className="p-4 text-zinc-400 text-[10px] font-semibold uppercase tracking-wider">Motorcycle Asset</th>
+                <th className="p-4 text-zinc-400 text-[10px] font-semibold uppercase tracking-wider">Status</th>
+                <th className="p-4 text-zinc-400 text-[10px] font-semibold uppercase tracking-wider">Investment</th>
+                <th className="p-4 text-zinc-400 text-[10px] font-semibold uppercase tracking-wider">Revenue</th>
+                <th className="p-4 text-zinc-400 text-[10px] font-semibold uppercase tracking-wider">Operating Cost</th>
+                <th className="p-4 text-zinc-400 text-[10px] font-semibold uppercase tracking-wider">Acc. Depreciation</th>
+                <th className="p-4 text-zinc-400 text-[10px] font-semibold uppercase tracking-wider">Net Profit</th>
+                <th className="p-4 text-zinc-400 text-[10px] font-semibold uppercase tracking-wider">ROI %</th>
+                <th className="p-4 text-zinc-400 text-[10px] font-semibold uppercase tracking-wider">Est. Market Val</th>
+                <th className="p-4 text-zinc-400 text-[10px] font-semibold uppercase tracking-wider text-center">Decision Verdict</th>
               </tr>
             </thead>
-            <tbody className="divide-y divide-[#262626] font-mono">
+            <tbody className="divide-y divide-zinc-800/50 font-mono text-gray-300">
               {bikeProfitabilityList.map(({ motorcycle, revenue, operatingCosts, depreciation, netProfit, roi, decision, depreciationStatus }) => (
-                <tr key={motorcycle.id} className="hover:bg-[#202020] transition-colors">
-                  <td className="p-3 font-sans">
-                    <div className="font-bold text-white">
+                <tr key={motorcycle.id} className="hover:bg-white/5 transition-colors border-b border-zinc-800/50">
+                  <td className="p-4 font-sans">
+                    <div className="font-bold text-white text-sm">
                       {motorcycle.brand} {motorcycle.model}
                     </div>
-                    <div className="text-[11px] text-zinc-400">Reg: {motorcycle.registrationNumber}</div>
+                    <div className="text-[11px] text-zinc-500">Reg: {motorcycle.registrationNumber}</div>
                   </td>
 
-                  <td className="p-3">
-                    <span className="px-2 py-0.5 rounded text-[10px] font-sans font-bold uppercase bg-zinc-800 text-zinc-300">
+                  <td className="p-4">
+                    <span className="px-2 py-0.5 rounded text-[10px] font-sans font-bold uppercase bg-zinc-800/50 text-zinc-400 border border-zinc-700/50">
                       {motorcycle.currentStatus}
                     </span>
                   </td>
 
-                  <td className="p-3 text-zinc-300">{formatCurrency(motorcycle.purchasePrice, currency)}</td>
-                  <td className="p-3 text-emerald-400 font-bold">{formatCurrency(revenue, currency)}</td>
-                  <td className="p-3 text-rose-400">{formatCurrency(operatingCosts, currency)}</td>
-                  <td className="p-3 text-amber-400">{formatCurrency(depreciation, currency)}</td>
+                  <td className="p-4">{formatCurrency(motorcycle.purchasePrice, currency)}</td>
+                  <td className="p-4 text-emerald-400/90 font-bold">{formatCurrency(revenue, currency)}</td>
+                  <td className="p-4 text-rose-400/80">{formatCurrency(operatingCosts, currency)}</td>
+                  <td className="p-4 text-amber-400/80">{formatCurrency(depreciation, currency)}</td>
 
-                  <td className={`p-3 font-bold ${netProfit >= 0 ? 'text-[#D4A017]' : 'text-rose-400'}`}>
+                  <td className={`p-4 font-bold ${netProfit >= 0 ? 'text-[#D4A017]' : 'text-rose-400'}`}>
                     {formatCurrency(netProfit, currency)}
                   </td>
 
-                  <td className={`p-3 font-extrabold ${roi >= 25 ? 'text-emerald-400' : roi >= 0 ? 'text-amber-400' : 'text-rose-400'}`}>
+                  <td className={`p-4 font-extrabold ${roi >= 25 ? 'text-emerald-400' : roi >= 0 ? 'text-amber-400' : 'text-rose-400'}`}>
                     {roi}%
                   </td>
 
-                  <td className="p-3 text-sky-300">
+                  <td className="p-4 text-sky-400/80">
                     {editingMarketValueId === motorcycle.id ? (
                       <div className="flex items-center gap-1">
                         <input
@@ -1208,14 +1211,14 @@ export const ExecutiveDashboard: React.FC<ExecutiveDashboardProps> = ({
                     )}
                   </td>
 
-                  <td className="p-3 text-center font-sans">
+                  <td className="p-4 text-center font-sans">
                     <span
-                      className={`px-3 py-1 rounded-full font-black text-[10px] tracking-wider uppercase inline-block ${
+                      className={`px-2 py-1 rounded-md text-xs font-medium tracking-wider uppercase inline-block border ${
                         decision === 'KEEP'
-                          ? 'bg-emerald-950/60 text-emerald-400 border border-emerald-800'
+                          ? 'bg-emerald-500/10 text-emerald-400 border-emerald-500/20'
                           : decision === 'MONITOR'
-                          ? 'bg-amber-950/60 text-amber-400 border border-amber-800'
-                          : 'bg-rose-950/60 text-rose-400 border border-rose-800'
+                          ? 'bg-amber-500/10 text-amber-400 border-amber-500/20'
+                          : 'bg-rose-500/10 text-rose-400 border-rose-500/20'
                       }`}
                     >
                       {decision}
