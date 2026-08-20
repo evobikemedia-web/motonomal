@@ -24,7 +24,6 @@ import {
   calculateInvestmentMetrics,
   calculateYoYGrowth,
   calculateTargetAchievement,
-  generateManagementSummary,
 } from '../../utils/calculations';
 import { useLanguage } from '../../context/LanguageContext';
 import { QuickActionsBar } from '../common/QuickActionsBar';
@@ -362,23 +361,121 @@ export const ExecutiveDashboard: React.FC<ExecutiveDashboardProps> = ({
     return 'All Time';
   }, [selectedRange, customStartDate, customEndDate]);
 
-  // Dynamic Management Summary Text
-  const dynamicSummaryText = useMemo(() => {
+  const getProgressBarTone = (value: number) => {
+    if (value < 30) return 'from-red-500 to-red-400';
+    if (value < 70) return 'from-amber-500 to-yellow-400';
+    return 'from-emerald-500 to-green-400';
+  };
+
+  // Explicitly construct the summary JSX with only business metrics highlighted,
+  // NOT capturing vehicle model numbers like "1250" from "BMW R 1250 GS"
+  const summaryJSX = useMemo(() => {
     const topBike = topBikesByRevenue[0]?.motorcycle;
-    return generateManagementSummary(
-      {
-        totalRevenue,
-        netProfit,
-        fleetUtilization: utilizationRes.utilizationRate,
-        totalBikes: fleetStatusCounts.Total,
-        topMotorcycleName: topBike ? `${topBike.brand} ${topBike.model}` : '',
-        maintenanceCount: fleetStatusCounts.Maintenance,
-        unpaidReservationsCount: filteredReservations.filter((r) => r.paymentStatus === 'Pending').length,
-        periodLabel: periodLabelText,
-      },
-      language
-    );
-  }, [totalRevenue, netProfit, utilizationRes, fleetStatusCounts, topBikesByRevenue, filteredReservations, periodLabelText, language]);
+    const margin = totalRevenue > 0 ? Math.round((netProfit / totalRevenue) * 100) : 0;
+    const unpaidCount = filteredReservations.filter((r) => r.paymentStatus === 'Pending').length;
+    const revFormatted = formatCurrency(totalRevenue, currency);
+    const profitFormatted = formatCurrency(netProfit, currency);
+    const utilText = `${utilizationRes.utilizationRate}%`;
+    const bikeCountText = fleetStatusCounts.Total === 1 ? '1 moto' : `${fleetStatusCounts.Total} motos`;
+    const maintenanceText = fleetStatusCounts.Maintenance === 1 ? '1 véhicule' : `${fleetStatusCounts.Maintenance} véhicule(s)`;
+    const unpaidText = unpaidCount === 1 ? '1 réservation' : `${unpaidCount} réservation(s)`;
+
+    if (language === 'fr') {
+      return (
+        <>
+          {`Pour la période sélectionnée (${periodLabelText}), Motonomad a enregistré un chiffre d'affaires total de `}
+          <span className="inline-block px-1.5 py-0.5 mx-0.5 rounded-md bg-[#D4A017]/12 text-[#F9D77A] font-bold border border-[#D4A017]/20 shadow-sm shadow-[#D4A017]/10">
+            {revFormatted}
+          </span>
+          {` avec un bénéfice net de `}
+          <span className="inline-block px-1.5 py-0.5 mx-0.5 rounded-md bg-[#D4A017]/12 text-[#F9D77A] font-bold border border-[#D4A017]/20 shadow-sm shadow-[#D4A017]/10">
+            {profitFormatted}
+          </span>
+          {` (marge nette de `}
+          <span className="inline-block px-1.5 py-0.5 mx-0.5 rounded-md bg-[#D4A017]/12 text-[#F9D77A] font-bold border border-[#D4A017]/20 shadow-sm shadow-[#D4A017]/10">
+            {margin}%
+          </span>
+          {`). Le taux d'utilisation de la flotte s'élève à `}
+          <span className="inline-block px-1.5 py-0.5 mx-0.5 rounded-md bg-[#D4A017]/12 text-[#F9D77A] font-bold border border-[#D4A017]/20 shadow-sm shadow-[#D4A017]/10">
+            {utilText}
+          </span>
+          {` sur `}
+          <span className="inline-block px-1.5 py-0.5 mx-0.5 rounded-md bg-[#D4A017]/12 text-[#F9D77A] font-bold border border-[#D4A017]/20 shadow-sm shadow-[#D4A017]/10">
+            {bikeCountText}
+          </span>
+          {` actives. `}
+          {topBike && (
+            <>
+              {`Le véhicule le plus performant de la flotte est la ${topBike.brand} ${topBike.model}. `}
+            </>
+          )}
+          {fleetStatusCounts.Maintenance > 0 && (
+            <>
+              <span className="inline-block px-1.5 py-0.5 mx-0.5 rounded-md bg-[#D4A017]/12 text-[#F9D77A] font-bold border border-[#D4A017]/20 shadow-sm shadow-[#D4A017]/10">
+                {maintenanceText}
+              </span>
+              {` sont actuellement en cours de maintenance ou révision. `}
+            </>
+          )}
+          {unpaidCount > 0 && (
+            <>
+              <span className="inline-block px-1.5 py-0.5 mx-0.5 rounded-md bg-[#D4A017]/12 text-[#F9D77A] font-bold border border-[#D4A017]/20 shadow-sm shadow-[#D4A017]/10">
+                {unpaidText}
+              </span>
+              {` nécessitent un suivi de paiement. `}
+            </>
+          )}
+        </>
+      );
+    } else {
+      return (
+        <>
+          {`For the selected period (${periodLabelText}), Motonomad recorded a total revenue of `}
+          <span className="inline-block px-1.5 py-0.5 mx-0.5 rounded-md bg-[#D4A017]/12 text-[#F9D77A] font-bold border border-[#D4A017]/20 shadow-sm shadow-[#D4A017]/10">
+            {revFormatted}
+          </span>
+          {` with a net profit of `}
+          <span className="inline-block px-1.5 py-0.5 mx-0.5 rounded-md bg-[#D4A017]/12 text-[#F9D77A] font-bold border border-[#D4A017]/20 shadow-sm shadow-[#D4A017]/10">
+            {profitFormatted}
+          </span>
+          {` (`}
+          <span className="inline-block px-1.5 py-0.5 mx-0.5 rounded-md bg-[#D4A017]/12 text-[#F9D77A] font-bold border border-[#D4A017]/20 shadow-sm shadow-[#D4A017]/10">
+            {margin}%
+          </span>
+          {` net margin). Fleet utilization stands at `}
+          <span className="inline-block px-1.5 py-0.5 mx-0.5 rounded-md bg-[#D4A017]/12 text-[#F9D77A] font-bold border border-[#D4A017]/20 shadow-sm shadow-[#D4A017]/10">
+            {utilText}
+          </span>
+          {` across `}
+          <span className="inline-block px-1.5 py-0.5 mx-0.5 rounded-md bg-[#D4A017]/12 text-[#F9D77A] font-bold border border-[#D4A017]/20 shadow-sm shadow-[#D4A017]/10">
+            {fleetStatusCounts.Total} active motorcycles
+          </span>
+          {`. `}
+          {topBike && (
+            <>
+              {`The top-performing asset is the ${topBike.brand} ${topBike.model}. `}
+            </>
+          )}
+          {fleetStatusCounts.Maintenance > 0 && (
+            <>
+              <span className="inline-block px-1.5 py-0.5 mx-0.5 rounded-md bg-[#D4A017]/12 text-[#F9D77A] font-bold border border-[#D4A017]/20 shadow-sm shadow-[#D4A017]/10">
+                {fleetStatusCounts.Maintenance} vehicle(s)
+              </span>
+              {` are currently undergoing maintenance or inspection. `}
+            </>
+          )}
+          {unpaidCount > 0 && (
+            <>
+              <span className="inline-block px-1.5 py-0.5 mx-0.5 rounded-md bg-[#D4A017]/12 text-[#F9D77A] font-bold border border-[#D4A017]/20 shadow-sm shadow-[#D4A017]/10">
+                {unpaidCount} reservation(s)
+              </span>
+              {` require payment follow-up. `}
+            </>
+          )}
+        </>
+      );
+    }
+  }, [totalRevenue, netProfit, utilizationRes, fleetStatusCounts, topBikesByRevenue, filteredReservations, periodLabelText, language, currency]);
 
   // CHART DATA GENERATION (10 Interactive Charts)
   // Chart 1: Financial Performance Bar
@@ -638,18 +735,18 @@ export const ExecutiveDashboard: React.FC<ExecutiveDashboardProps> = ({
       {/* ---------------------------------------------------- */}
       {/* 2. DYNAMIC MANAGEMENT SUMMARY BANNER                */}
       {/* ---------------------------------------------------- */}
-      <div className="p-4 rounded-2xl bg-gradient-to-r from-[#1C180E] via-[#1A1A1A] to-[#121212] border border-[#D4A017]/30 shadow-lg relative overflow-hidden">
-        <div className="absolute top-0 right-0 w-64 h-full bg-[#D4A017]/5 rounded-full blur-2xl pointer-events-none" />
-        <div className="flex items-start gap-3">
-          <div className="p-2 rounded-xl bg-[#D4A017]/20 text-[#D4A017] border border-[#D4A017]/30 mt-0.5 shrink-0">
+      <div className="p-4 rounded-2xl bg-gradient-to-r from-[#1C180E] via-[#1A1A1A] to-[#121212] border border-[#D4A017]/30 shadow-xl shadow-[#D4A017]/10 relative overflow-hidden">
+        <div className="absolute top-0 right-0 w-64 h-full bg-[#D4A017]/8 rounded-full blur-2xl pointer-events-none" />
+        <div className="flex items-start gap-3 relative z-10">
+          <div className="p-2.5 rounded-xl bg-[#D4A017]/15 text-[#D4A017] border border-[#D4A017]/30 mt-0.5 shrink-0 shadow-inner shadow-[#D4A017]/10">
             <Activity className="w-5 h-5" />
           </div>
-          <div>
-            <h4 className="text-xs font-bold uppercase tracking-wider text-[#D4A017]">
+          <div className="min-w-0">
+            <h4 className="text-[11px] font-bold uppercase tracking-[0.18em] text-[#D4A017]">
               Dynamic Management Executive Summary
             </h4>
-            <p className="text-xs text-zinc-200 mt-1 leading-relaxed font-sans">
-              {dynamicSummaryText}
+            <p className="text-xs text-zinc-200 mt-2 leading-relaxed font-sans">
+              {summaryJSX}
             </p>
           </div>
         </div>
@@ -660,26 +757,42 @@ export const ExecutiveDashboard: React.FC<ExecutiveDashboardProps> = ({
       {/* ---------------------------------------------------- */}
       {alerts.length > 0 && (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
-          {alerts.slice(0, 3).map((a) => (
-            <div
-              key={a.id}
-              onClick={() => a.tab && onNavigate(a.tab)}
-              className={`p-3.5 rounded-xl border flex items-start gap-3 cursor-pointer transition-transform hover:scale-[1.01] ${
-                a.type === 'danger'
-                  ? 'bg-rose-950/20 border-rose-800/40 text-rose-200'
-                  : a.type === 'warning'
-                  ? 'bg-amber-950/20 border-amber-800/40 text-amber-200'
-                  : 'bg-sky-950/20 border-sky-800/40 text-sky-200'
-              }`}
-            >
-              <AlertTriangle className={`w-4 h-4 shrink-0 mt-0.5 ${a.type === 'danger' ? 'text-rose-400' : 'text-amber-400'}`} />
-              <div className="min-w-0 flex-1">
-                <span className="font-bold text-xs block truncate">{a.title}</span>
-                <span className="text-[11px] text-zinc-400 block truncate">{a.message}</span>
+          {alerts.slice(0, 3).map((a) => {
+            const severity = a.type === 'danger' ? 'Critical' : a.type === 'warning' ? 'Review' : 'Info';
+            const severityClass = a.type === 'danger'
+              ? 'bg-rose-950/30 border-rose-900/50 text-rose-400'
+              : a.type === 'warning'
+              ? 'bg-amber-950/30 border-amber-900/50 text-amber-400'
+              : 'bg-sky-950/30 border-sky-900/50 text-sky-400';
+
+            const badgeClass = a.type === 'danger'
+              ? 'bg-rose-500/10 border-rose-500/20 text-rose-300'
+              : a.type === 'warning'
+              ? 'bg-amber-500/10 border-amber-500/20 text-amber-300'
+              : 'bg-sky-500/10 border-sky-500/20 text-sky-300';
+
+            return (
+              <div
+                key={a.id}
+                onClick={() => a.tab && onNavigate(a.tab)}
+                className={`p-3.5 rounded-xl border flex items-start gap-3 cursor-pointer transition-all hover:-translate-y-0.5 hover:brightness-110 ${severityClass}`}
+              >
+                <div className="flex items-start gap-2 w-full min-w-0">
+                  <AlertTriangle className="w-4 h-4 shrink-0 mt-0.5" />
+                  <div className="min-w-0 flex-1">
+                    <div className="flex items-center justify-between gap-2">
+                      <span className="font-bold text-xs block truncate uppercase tracking-wide">{a.title}</span>
+                      <span className={`px-2 py-1 rounded text-[10px] uppercase font-bold tracking-wider border ${badgeClass}`}>
+                        {severity}
+                      </span>
+                    </div>
+                    <span className="text-[11px] text-zinc-400 block mt-1 leading-relaxed">{a.message}</span>
+                  </div>
+                </div>
+                <ChevronRight className="w-4 h-4 opacity-50 shrink-0 self-center" />
               </div>
-              <ChevronRight className="w-4 h-4 text-zinc-500 shrink-0 self-center" />
-            </div>
-          ))}
+            );
+          })}
         </div>
       )}
 
@@ -697,20 +810,20 @@ export const ExecutiveDashboard: React.FC<ExecutiveDashboardProps> = ({
               'motorcycles'
             )
           }
-          className="p-5 rounded-2xl bg-[#181818] border border-[#2D2D2D] hover:border-[#D4A017]/50 transition-all cursor-pointer group shadow-xl relative overflow-hidden"
+          className="p-5 bg-[#1C1C1C] rounded-xl border border-zinc-800 transition-all cursor-pointer group shadow-xl relative overflow-hidden group-hover:scale-[1.02]"
         >
-          <div className="flex items-center justify-between text-zinc-400 mb-2">
-            <span className="text-xs font-bold uppercase tracking-wider">Total Fleet Investment</span>
-            <div className="p-2 rounded-xl bg-blue-500/10 text-blue-400 group-hover:scale-110 transition-transform">
+          <div className="flex items-center justify-between mb-2">
+            <span className="text-zinc-400 text-xs font-bold uppercase tracking-wider">Total Fleet Investment</span>
+            <div className="p-2 rounded-lg bg-zinc-800/50 text-zinc-500 group-hover:text-zinc-300 transition-colors">
               <DollarSign className="w-4 h-4" />
             </div>
           </div>
           <div className="text-2xl font-black font-mono text-white">
             {formatCurrency(fleetKPIs.totalInvestment, currency)}
           </div>
-          <div className="mt-2 text-[11px] text-zinc-400 flex items-center justify-between">
+          <div className="mt-2 text-[11px] text-zinc-500 flex items-center justify-between">
             <span>Active Assets: {fleetStatusCounts.Total}</span>
-            <span className="text-blue-400 font-semibold group-hover:underline">Audit Breakdown &rarr;</span>
+            <span className="font-semibold group-hover:text-zinc-400 group-hover:underline">Audit Breakdown &rarr;</span>
           </div>
         </div>
 
@@ -724,20 +837,20 @@ export const ExecutiveDashboard: React.FC<ExecutiveDashboardProps> = ({
               'depreciation'
             )
           }
-          className="p-5 rounded-2xl bg-[#181818] border border-[#2D2D2D] hover:border-[#D4A017]/50 transition-all cursor-pointer group shadow-xl"
+          className="p-5 bg-[#1C1C1C] rounded-xl border border-zinc-800 transition-all cursor-pointer group shadow-xl group-hover:scale-[1.02]"
         >
-          <div className="flex items-center justify-between text-zinc-400 mb-2">
-            <span className="text-xs font-bold uppercase tracking-wider">Current Book Value</span>
-            <div className="p-2 rounded-xl bg-emerald-500/10 text-emerald-400 group-hover:scale-110 transition-transform">
+          <div className="flex items-center justify-between mb-2">
+            <span className="text-zinc-400 text-xs font-bold uppercase tracking-wider">Current Book Value</span>
+            <div className="p-2 rounded-lg bg-zinc-800/50 text-zinc-500 group-hover:text-zinc-300 transition-colors">
               <ShieldCheck className="w-4 h-4" />
             </div>
           </div>
-          <div className="text-2xl font-black font-mono text-emerald-400">
+          <div className="text-2xl font-black font-mono text-white">
             {formatCurrency(fleetKPIs.currentBookValue, currency)}
           </div>
-          <div className="mt-2 text-[11px] text-zinc-400 flex items-center justify-between">
+          <div className="mt-2 text-[11px] text-zinc-500 flex items-center justify-between">
             <span>Est Market: {formatCurrency(fleetKPIs.estimatedMarketValue, currency)}</span>
-            <span className="text-emerald-400 font-semibold group-hover:underline">Audit Breakdown &rarr;</span>
+            <span className="font-semibold group-hover:text-zinc-400 group-hover:underline">Audit Breakdown &rarr;</span>
           </div>
         </div>
 
@@ -751,20 +864,20 @@ export const ExecutiveDashboard: React.FC<ExecutiveDashboardProps> = ({
               'depreciation'
             )
           }
-          className="p-5 rounded-2xl bg-[#181818] border border-[#2D2D2D] hover:border-[#D4A017]/50 transition-all cursor-pointer group shadow-xl"
+          className="p-5 bg-[#1C1C1C] rounded-xl border border-zinc-800 transition-all cursor-pointer group shadow-xl group-hover:scale-[1.02]"
         >
-          <div className="flex items-center justify-between text-zinc-400 mb-2">
-            <span className="text-xs font-bold uppercase tracking-wider">Accumulated Depreciation</span>
-            <div className="p-2 rounded-xl bg-amber-500/10 text-amber-400 group-hover:scale-110 transition-transform">
+          <div className="flex items-center justify-between mb-2">
+            <span className="text-zinc-400 text-xs font-bold uppercase tracking-wider">Accumulated Depreciation</span>
+            <div className="p-2 rounded-lg bg-zinc-800/50 text-zinc-500 group-hover:text-zinc-300 transition-colors">
               <Layers className="w-4 h-4" />
             </div>
           </div>
-          <div className="text-2xl font-black font-mono text-amber-400">
+          <div className="text-2xl font-black font-mono text-white">
             {formatCurrency(fleetKPIs.accumulatedDepreciation, currency)}
           </div>
-          <div className="mt-2 text-[11px] text-zinc-400 flex items-center justify-between">
+          <div className="mt-2 text-[11px] text-zinc-500 flex items-center justify-between">
             <span>Monthly Rate: -{formatCurrency(fleetKPIs.monthlyFleetDepreciation, currency)}</span>
-            <span className="text-amber-400 font-semibold group-hover:underline">Audit Breakdown &rarr;</span>
+            <span className="font-semibold group-hover:text-zinc-400 group-hover:underline">Audit Breakdown &rarr;</span>
           </div>
         </div>
 
@@ -778,20 +891,20 @@ export const ExecutiveDashboard: React.FC<ExecutiveDashboardProps> = ({
               'revenue'
             )
           }
-          className="p-5 rounded-2xl bg-[#181818] border border-[#2D2D2D] hover:border-[#D4A017]/50 transition-all cursor-pointer group shadow-xl"
+          className="p-5 bg-[#1C1C1C] rounded-xl border border-zinc-800 transition-all cursor-pointer group shadow-xl group-hover:scale-[1.02] shadow-[#D4A017]/5"
         >
-          <div className="flex items-center justify-between text-zinc-400 mb-2">
-            <span className="text-xs font-bold uppercase tracking-wider">Net Profit</span>
-            <div className="p-2 rounded-xl bg-[#D4A017]/10 text-[#D4A017] group-hover:scale-110 transition-transform">
+          <div className="flex items-center justify-between mb-2">
+            <span className="text-zinc-400 text-xs font-bold uppercase tracking-wider">Net Profit</span>
+            <div className="p-2 rounded-lg bg-zinc-800/50 text-zinc-500 group-hover:text-zinc-300 transition-colors">
               <TrendingUp className="w-4 h-4" />
             </div>
           </div>
-          <div className="text-2xl font-black font-mono text-[#D4A017]">
+          <div className="text-[1.8rem] font-black font-mono text-[#D4A017] leading-none">
             {formatCurrency(netProfit, currency)}
           </div>
-          <div className="mt-2 text-[11px] text-zinc-400 flex items-center justify-between">
+          <div className="mt-2 text-[11px] text-zinc-500 flex items-center justify-between">
             <span>Profit Margin: {profitMargin.toFixed(1)}%</span>
-            <span className="text-[#D4A017] font-semibold group-hover:underline">Audit Breakdown &rarr;</span>
+            <span className="font-semibold group-hover:text-zinc-400 group-hover:underline">Audit Breakdown &rarr;</span>
           </div>
         </div>
 
@@ -805,20 +918,20 @@ export const ExecutiveDashboard: React.FC<ExecutiveDashboardProps> = ({
               'revenue'
             )
           }
-          className="p-5 rounded-2xl bg-[#181818] border border-[#2D2D2D] hover:border-[#D4A017]/50 transition-all cursor-pointer group shadow-xl"
+          className="p-5 bg-[#1C1C1C] rounded-xl border border-zinc-800 transition-all cursor-pointer group shadow-xl group-hover:scale-[1.02] shadow-[#D4A017]/5"
         >
-          <div className="flex items-center justify-between text-zinc-400 mb-2">
-            <span className="text-xs font-bold uppercase tracking-wider">Total Revenue</span>
-            <div className="p-2 rounded-xl bg-emerald-500/10 text-emerald-400">
+          <div className="flex items-center justify-between mb-2">
+            <span className="text-zinc-400 text-xs font-bold uppercase tracking-wider">Total Revenue</span>
+            <div className="p-2 rounded-lg bg-zinc-800/50 text-zinc-500 group-hover:text-zinc-300 transition-colors">
               <ArrowUpRight className="w-4 h-4" />
             </div>
           </div>
-          <div className="text-2xl font-black font-mono text-emerald-400">
+          <div className="text-[1.8rem] font-black font-mono text-[#D4A017] leading-none">
             {formatCurrency(totalRevenue, currency)}
           </div>
-          <div className="mt-2 text-[11px] text-zinc-400 flex items-center justify-between">
+          <div className="mt-2 text-[11px] text-zinc-500 flex items-center justify-between">
             <span>Rental: {formatCurrency(revBreakdown.Rental, currency)}</span>
-            <span className="text-emerald-400 font-semibold group-hover:underline">Drill-Down &rarr;</span>
+            <span className="font-semibold group-hover:text-zinc-400 group-hover:underline">Drill-Down &rarr;</span>
           </div>
         </div>
 
@@ -832,20 +945,20 @@ export const ExecutiveDashboard: React.FC<ExecutiveDashboardProps> = ({
               'expense'
             )
           }
-          className="p-5 rounded-2xl bg-[#181818] border border-[#2D2D2D] hover:border-[#D4A017]/50 transition-all cursor-pointer group shadow-xl"
+          className="p-5 bg-[#1C1C1C] rounded-xl border border-zinc-800 transition-all cursor-pointer group shadow-xl group-hover:scale-[1.02]"
         >
-          <div className="flex items-center justify-between text-zinc-400 mb-2">
-            <span className="text-xs font-bold uppercase tracking-wider">Operating Expenses</span>
-            <div className="p-2 rounded-xl bg-rose-500/10 text-rose-400">
+          <div className="flex items-center justify-between mb-2">
+            <span className="text-zinc-400 text-xs font-bold uppercase tracking-wider">Operating Expenses</span>
+            <div className="p-2 rounded-lg bg-zinc-800/50 text-zinc-500 group-hover:text-zinc-300 transition-colors">
               <ArrowDownRight className="w-4 h-4" />
             </div>
           </div>
-          <div className="text-2xl font-black font-mono text-rose-400">
+          <div className="text-2xl font-black font-mono text-white">
             {formatCurrency(totalOperatingExpenses, currency)}
           </div>
-          <div className="mt-2 text-[11px] text-zinc-400 flex items-center justify-between">
+          <div className="mt-2 text-[11px] text-zinc-500 flex items-center justify-between">
             <span>Maintenance: {formatCurrency(expBreakdown.Maintenance, currency)}</span>
-            <span className="text-rose-400 font-semibold group-hover:underline">Drill-Down &rarr;</span>
+            <span className="font-semibold group-hover:text-zinc-400 group-hover:underline">Drill-Down &rarr;</span>
           </div>
         </div>
 
@@ -859,20 +972,20 @@ export const ExecutiveDashboard: React.FC<ExecutiveDashboardProps> = ({
               'reservations'
             )
           }
-          className="p-5 rounded-2xl bg-[#181818] border border-[#2D2D2D] hover:border-[#D4A017]/50 transition-all cursor-pointer group shadow-xl"
+          className="p-5 bg-[#1C1C1C] rounded-xl border border-zinc-800 transition-all cursor-pointer group shadow-xl group-hover:scale-[1.02]"
         >
-          <div className="flex items-center justify-between text-zinc-400 mb-2">
-            <span className="text-xs font-bold uppercase tracking-wider">Fleet Utilization</span>
-            <div className="p-2 rounded-xl bg-purple-500/10 text-purple-400">
+          <div className="flex items-center justify-between mb-2">
+            <span className="text-zinc-400 text-xs font-bold uppercase tracking-wider">Fleet Utilization</span>
+            <div className="p-2 rounded-lg bg-zinc-800/50 text-zinc-500 group-hover:text-zinc-300 transition-colors">
               <Activity className="w-4 h-4" />
             </div>
           </div>
-          <div className="text-2xl font-black font-mono text-purple-300">
+          <div className="text-2xl font-black font-mono text-white">
             {utilizationRes.utilizationRate}%
           </div>
-          <div className="mt-2 text-[11px] text-zinc-400 flex items-center justify-between">
+          <div className="mt-2 text-[11px] text-zinc-500 flex items-center justify-between">
             <span>{utilizationRes.totalActualDays} Rented / {utilizationRes.totalAvailableDays} Avail Days</span>
-            <span className="text-purple-400 font-semibold group-hover:underline">Drill-Down &rarr;</span>
+            <span className="font-semibold group-hover:text-zinc-400 group-hover:underline">Drill-Down &rarr;</span>
           </div>
         </div>
 
@@ -886,20 +999,20 @@ export const ExecutiveDashboard: React.FC<ExecutiveDashboardProps> = ({
               'reservations'
             )
           }
-          className="p-5 rounded-2xl bg-[#181818] border border-[#2D2D2D] hover:border-[#D4A017]/50 transition-all cursor-pointer group shadow-xl"
+          className="p-5 bg-[#1C1C1C] rounded-xl border border-zinc-800 transition-all cursor-pointer group shadow-xl group-hover:scale-[1.02] shadow-[#D4A017]/5"
         >
-          <div className="flex items-center justify-between text-zinc-400 mb-2">
-            <span className="text-xs font-bold uppercase tracking-wider">Avg Rev / Rental Day</span>
-            <div className="p-2 rounded-xl bg-sky-500/10 text-sky-400">
+          <div className="flex items-center justify-between mb-2">
+            <span className="text-zinc-400 text-xs font-bold uppercase tracking-wider">Avg Rev / Rental Day</span>
+            <div className="p-2 rounded-lg bg-zinc-800/50 text-zinc-500 group-hover:text-zinc-300 transition-colors">
               <Compass className="w-4 h-4" />
             </div>
           </div>
-          <div className="text-2xl font-black font-mono text-sky-300">
+          <div className="text-2xl font-black font-mono text-[#D4A017]">
             {formatCurrency(avgRevenuePerRentalDay, currency)}
           </div>
-          <div className="mt-2 text-[11px] text-zinc-400 flex items-center justify-between">
+          <div className="mt-2 text-[11px] text-zinc-500 flex items-center justify-between">
             <span>Total Rental Days: {totalRentalDays}</span>
-            <span className="text-sky-400 font-semibold group-hover:underline">Drill-Down &rarr;</span>
+            <span className="font-semibold group-hover:text-zinc-400 group-hover:underline">Drill-Down &rarr;</span>
           </div>
         </div>
       </div>
@@ -923,73 +1036,73 @@ export const ExecutiveDashboard: React.FC<ExecutiveDashboardProps> = ({
 
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 text-xs font-mono">
           {/* Monthly Revenue Target */}
-          <div className="p-4 rounded-xl bg-[#202020] border border-[#2D2D2D] space-y-2">
-            <div className="flex justify-between text-zinc-400">
+          <div className="p-4 rounded-xl bg-[#202020] border border-[#2D2D2D] space-y-2.5">
+            <div className="flex justify-between items-center text-zinc-400">
               <span>Monthly Revenue Target</span>
-              <span className="font-bold text-white">{calculateTargetAchievement(totalRevenue, targets.monthlyRevenueTarget)}%</span>
+              <span className="font-bold text-[#F5D77A]">{calculateTargetAchievement(totalRevenue, targets.monthlyRevenueTarget)}%</span>
             </div>
             <div className="w-full bg-zinc-800 h-2.5 rounded-full overflow-hidden">
               <div
-                className="bg-[#D4A017] h-full rounded-full transition-all"
+                className={`h-full rounded-full bg-gradient-to-r ${getProgressBarTone(calculateTargetAchievement(totalRevenue, targets.monthlyRevenueTarget))} transition-all`}
                 style={{ width: `${Math.min(100, calculateTargetAchievement(totalRevenue, targets.monthlyRevenueTarget))}%` }}
               />
             </div>
-            <div className="flex justify-between text-[11px] text-zinc-400 pt-1">
-              <span>Actual: {formatCurrency(totalRevenue, currency)}</span>
-              <span>Target: {formatCurrency(targets.monthlyRevenueTarget, currency)}</span>
+            <div className="flex justify-between text-[11px] pt-1">
+              <span className="text-white font-semibold">Actual: {formatCurrency(totalRevenue, currency)}</span>
+              <span className="text-zinc-400">Target: {formatCurrency(targets.monthlyRevenueTarget, currency)}</span>
             </div>
           </div>
 
           {/* Fleet Utilization Target */}
-          <div className="p-4 rounded-xl bg-[#202020] border border-[#2D2D2D] space-y-2">
-            <div className="flex justify-between text-zinc-400">
+          <div className="p-4 rounded-xl bg-[#202020] border border-[#2D2D2D] space-y-2.5">
+            <div className="flex justify-between items-center text-zinc-400">
               <span>Utilization Target</span>
-              <span className="font-bold text-white">{calculateTargetAchievement(utilizationRes.utilizationRate, targets.fleetUtilizationTarget)}%</span>
+              <span className="font-bold text-[#E7C5FF]">{calculateTargetAchievement(utilizationRes.utilizationRate, targets.fleetUtilizationTarget)}%</span>
             </div>
             <div className="w-full bg-zinc-800 h-2.5 rounded-full overflow-hidden">
               <div
-                className="bg-purple-500 h-full rounded-full transition-all"
+                className={`h-full rounded-full bg-gradient-to-r ${getProgressBarTone(calculateTargetAchievement(utilizationRes.utilizationRate, targets.fleetUtilizationTarget))} transition-all`}
                 style={{ width: `${Math.min(100, calculateTargetAchievement(utilizationRes.utilizationRate, targets.fleetUtilizationTarget))}%` }}
               />
             </div>
-            <div className="flex justify-between text-[11px] text-zinc-400 pt-1">
-              <span>Actual: {utilizationRes.utilizationRate}%</span>
-              <span>Target: {targets.fleetUtilizationTarget}%</span>
+            <div className="flex justify-between text-[11px] pt-1">
+              <span className="text-white font-semibold">Actual: {utilizationRes.utilizationRate}%</span>
+              <span className="text-zinc-400">Target: {targets.fleetUtilizationTarget}%</span>
             </div>
           </div>
 
           {/* Profit Margin Target */}
-          <div className="p-4 rounded-xl bg-[#202020] border border-[#2D2D2D] space-y-2">
-            <div className="flex justify-between text-zinc-400">
+          <div className="p-4 rounded-xl bg-[#202020] border border-[#2D2D2D] space-y-2.5">
+            <div className="flex justify-between items-center text-zinc-400">
               <span>Profit Margin Target</span>
-              <span className="font-bold text-white">{calculateTargetAchievement(profitMargin, targets.profitMarginTarget)}%</span>
+              <span className="font-bold text-[#A7F3D0]">{calculateTargetAchievement(profitMargin, targets.profitMarginTarget)}%</span>
             </div>
             <div className="w-full bg-zinc-800 h-2.5 rounded-full overflow-hidden">
               <div
-                className="bg-emerald-500 h-full rounded-full transition-all"
+                className={`h-full rounded-full bg-gradient-to-r ${getProgressBarTone(calculateTargetAchievement(profitMargin, targets.profitMarginTarget))} transition-all`}
                 style={{ width: `${Math.min(100, calculateTargetAchievement(profitMargin, targets.profitMarginTarget))}%` }}
               />
             </div>
-            <div className="flex justify-between text-[11px] text-zinc-400 pt-1">
-              <span>Actual: {profitMargin.toFixed(1)}%</span>
-              <span>Target: {targets.profitMarginTarget}%</span>
+            <div className="flex justify-between text-[11px] pt-1">
+              <span className="text-white font-semibold">Actual: {profitMargin.toFixed(1)}%</span>
+              <span className="text-zinc-400">Target: {targets.profitMarginTarget}%</span>
             </div>
           </div>
 
           {/* Investment Recovery */}
-          <div className="p-4 rounded-xl bg-[#202020] border border-[#2D2D2D] space-y-2">
-            <div className="flex justify-between text-zinc-400">
+          <div className="p-4 rounded-xl bg-[#202020] border border-[#2D2D2D] space-y-2.5">
+            <div className="flex justify-between items-center text-zinc-400">
               <span>Fleet Investment Recovery</span>
-              <span className="font-bold text-white">{investmentRecoveryPercent.toFixed(1)}%</span>
+              <span className="font-bold text-[#A5D8FF]">{investmentRecoveryPercent.toFixed(1)}%</span>
             </div>
             <div className="w-full bg-zinc-800 h-2.5 rounded-full overflow-hidden">
               <div
-                className="bg-sky-500 h-full rounded-full transition-all"
+                className={`h-full rounded-full bg-gradient-to-r ${getProgressBarTone(Math.min(100, investmentRecoveryPercent))} transition-all`}
                 style={{ width: `${Math.min(100, investmentRecoveryPercent)}%` }}
               />
             </div>
-            <div className="flex justify-between text-[11px] text-zinc-400 pt-1">
-              <span>Remaining: {formatCurrency(remainingInvestmentRecovery, currency)}</span>
+            <div className="flex justify-between text-[11px] pt-1">
+              <span className="text-white font-semibold">Remaining: {formatCurrency(remainingInvestmentRecovery, currency)}</span>
             </div>
           </div>
         </div>
