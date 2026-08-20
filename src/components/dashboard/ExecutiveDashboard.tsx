@@ -36,6 +36,11 @@ import { ManagementTargetsModal, DEFAULT_MANAGEMENT_TARGETS, ManagementTargets }
 interface ExecutiveDashboardProps {
   currency: 'MAD' | 'EUR' | 'USD';
   dateRange: DateFilterRange;
+  setDateRange?: (range: DateFilterRange) => void;
+  customStartDate: string;
+  setCustomStartDate?: (date: string) => void;
+  customEndDate: string;
+  setCustomEndDate?: (date: string) => void;
   motorcycles: Motorcycle[];
   reservations: Reservation[];
   revenues: Revenue[];
@@ -53,7 +58,12 @@ interface ExecutiveDashboardProps {
 
 export const ExecutiveDashboard: React.FC<ExecutiveDashboardProps> = ({
   currency,
-  dateRange: initialDateRange,
+  dateRange,
+  setDateRange,
+  customStartDate,
+  setCustomStartDate,
+  customEndDate,
+  setCustomEndDate,
   motorcycles = [],
   reservations = [],
   revenues = [],
@@ -70,10 +80,7 @@ export const ExecutiveDashboard: React.FC<ExecutiveDashboardProps> = ({
 }) => {
   const { t, language } = useLanguage();
 
-  // Local Filter States
-  const [selectedRange, setSelectedRange] = useState<DateFilterRange | 'custom'>(initialDateRange || 'this_month');
-  const [customStartDate, setCustomStartDate] = useState('2026-08-01');
-  const [customEndDate, setCustomEndDate] = useState('2026-08-31');
+  const selectedRange = dateRange || 'this_month';
   const [selectedMotorcycleFilter, setSelectedMotorcycleFilter] = useState<string>('all');
   const [selectedCategoryFilter, setSelectedCategoryFilter] = useState<string>('all');
 
@@ -586,42 +593,10 @@ export const ExecutiveDashboard: React.FC<ExecutiveDashboardProps> = ({
 
         {/* Global Filter Bar */}
         <div className="flex flex-wrap items-center gap-2.5 w-full lg:w-auto">
-          {/* Date Range Picker */}
-          <div className="flex items-center bg-[#111111] border border-[#333333] rounded-xl px-3 py-1.5 text-xs">
+          <div className="flex items-center bg-[#111111] border border-[#333333] rounded-xl px-3 py-1.5 text-xs text-zinc-300">
             <Calendar className="w-3.5 h-3.5 text-[#D4A017] mr-2" />
-            <select
-              value={selectedRange}
-              onChange={(e) => setSelectedRange(e.target.value as any)}
-              className="bg-transparent text-white font-semibold outline-none cursor-pointer"
-            >
-              <option value="today" className="bg-[#181818]">Today</option>
-              <option value="this_week" className="bg-[#181818]">This Week</option>
-              <option value="this_month" className="bg-[#181818]">This Month</option>
-              <option value="last_month" className="bg-[#181818]">Last Month</option>
-              <option value="this_quarter" className="bg-[#181818]">This Quarter</option>
-              <option value="this_year" className="bg-[#181818]">This Year (2026)</option>
-              <option value="all" className="bg-[#181818]">All Time</option>
-              <option value="custom" className="bg-[#181818]">Custom Date Range</option>
-            </select>
+            <span className="font-semibold text-white">{selectedRange === 'custom' ? `${customStartDate} → ${customEndDate}` : selectedRange}</span>
           </div>
-
-          {selectedRange === 'custom' && (
-            <div className="flex items-center gap-1.5 text-xs">
-              <input
-                type="date"
-                value={customStartDate}
-                onChange={(e) => setCustomStartDate(e.target.value)}
-                className="bg-[#111111] border border-[#333333] text-white rounded-lg px-2 py-1"
-              />
-              <span className="text-zinc-500">-</span>
-              <input
-                type="date"
-                value={customEndDate}
-                onChange={(e) => setCustomEndDate(e.target.value)}
-                className="bg-[#111111] border border-[#333333] text-white rounded-lg px-2 py-1"
-              />
-            </div>
-          )}
 
           {/* Motorcycle Filter */}
           <div className="flex items-center bg-[#111111] border border-[#333333] rounded-xl px-3 py-1.5 text-xs">

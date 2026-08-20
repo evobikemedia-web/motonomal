@@ -1,11 +1,12 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef, useMemo } from 'react';
 import { 
-  Search, Bell, Plus, Calendar, X, WifiOff, Globe
+  Search, Bell, Plus, Calendar, X, WifiOff, Globe, ChevronDown
 } from 'lucide-react';
 import { DateFilterRange, NotificationItem } from '../../types';
 import { dbStore } from '../../services/db';
 import { useLanguage } from '../../context/LanguageContext';
 import { MountainLogoSVG } from '../common/Logo';
+import { DateRangePicker } from '../common/DateRangePicker';
 
 interface HeaderProps {
   searchQuery: string;
@@ -14,6 +15,10 @@ interface HeaderProps {
   setCurrency: (c: 'MAD' | 'EUR' | 'USD') => void;
   dateRange: DateFilterRange;
   setDateRange: (d: DateFilterRange) => void;
+  customStartDate: string;
+  setCustomStartDate: (d: string) => void;
+  customEndDate: string;
+  setCustomEndDate: (d: string) => void;
   onQuickAction: (actionType: 'reservation' | 'client' | 'motorcycle') => void;
 }
 
@@ -24,16 +29,70 @@ export const Header: React.FC<HeaderProps> = ({
   setCurrency,
   dateRange,
   setDateRange,
+  customStartDate,
+  setCustomStartDate,
+  customEndDate,
+  setCustomEndDate,
   onQuickAction,
 }) => {
   const { t, language, setLanguage } = useLanguage();
   const [showNotifications, setShowNotifications] = useState(false);
   const [showMobileSearch, setShowMobileSearch] = useState(false);
+  const [showDateFilter, setShowDateFilter] = useState(false);
   const [isOffline, setIsOffline] = useState(!navigator.onLine);
+  const dateFilterRef = useRef<HTMLDivElement>(null);
 
   const [notifications, setNotifications] = useState<NotificationItem[]>(() =>
     dbStore.getCollection<NotificationItem>('notifications') || []
   );
+
+  useEffect(() => {
+    const handleClickOutside = (e: MouseEvent) => {
+      if (dateFilterRef.current && !dateFilterRef.current.contains(e.target as Node)) {
+        setShowDateFilter(false);
+      }
+    };
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, []);
+
+  const dateOptions: { value: DateFilterRange; labelKey: string }[] = [
+    { value: 'today', labelKey: 'common.today' },
+    { value: 'this_week', labelKey: 'common.this_week' },
+    { value: 'this_month', labelKey: 'common.this_month' },
+    { value: 'last_month', labelKey: 'common.last_month' },
+    { value: 'this_quarter', labelKey: 'common.this_quarter' },
+    { value: 'this_year', labelKey: 'common.this_year' },
+    { value: 'all', labelKey: 'common.all_time' },
+  ];
+
+  const customRangeLabel = useMemo(() => {
+    const parse = (s: string) => {
+      const [y, m, d] = s.split('-').map(Number);
+      return new Date(y, m - 1, d);
+    };
+    const months = language === 'fr'
+      ? ['Jan', 'Fév', 'Mar', 'Avr', 'Mai', 'Juin', 'Juil', 'Août', 'Sept', 'Oct', 'Nov', 'Déc']
+      : ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+    try {
+      const sd = parse(customStartDate);
+      const ed = parse(customEndDate);
+      const sameMonth = sd.getMonth() === ed.getMonth() && sd.getFullYear() === ed.getFullYear();
+      const sameYear = sd.getFullYear() === ed.getFullYear();
+      const sStr = `${sd.getDate()} ${months[sd.getMonth()]}${!sameYear ? ' ' + sd.getFullYear() : ''}`;
+      const eStr = `${ed.getDate()} ${months[ed.getMonth()]}${!sameYear ? ' ' + ed.getFullYear() : !sameMonth ? '' : ''}`;
+      return `${sStr} - ${eStr}`;
+    } catch {
+      return t('common.custom_range');
+    }
+  }, [customStartDate, customEndDate, language, t]);
+
+  const dateButtonLabel =
+    dateRange === 'custom'
+      ? customRangeLabel
+      : dateOptions.find((o) => o.value === dateRange)
+      ? t(dateOptions.find((o) => o.value === dateRange)!.labelKey)
+      : dateRange;
 
   useEffect(() => {
     const handleOnline = () => setIsOffline(false);
@@ -111,44 +170,45 @@ export const Header: React.FC<HeaderProps> = ({
             <Search className="w-4 h-4" />
           </button>
 
-          {/* Bilingual Language Switcher Button [ 🇫🇷 FR | 🇬🇧 EN ] */}
-          <div className="flex items-center bg-[#262626] border border-[#333333] rounded-xl p-0.5 md:p-1 text-[11px] md:text-xs font-bold">
+          {/* Language Switcher Pill */}
+          <div className="flex items-center bg-[#1C1C1C] rounded-full px-1 py-1 text-xs">
             <button
               onClick={() => setLanguage('fr')}
-              className={`px-2 py-1 rounded-lg transition-all flex items-center gap-1 ${
+              className={`px-3 py-1 rounded-full transition-all ${
                 language === 'fr'
-                  ? 'bg-[#D4A017] text-[#1C1C1C] font-black shadow-sm'
-                  : 'text-zinc-400 hover:text-white'
+                  ? 'bg-[#D4A017] text-black font-semibold shadow-sm'
+                  : 'text-gray-400 hover:text-gray-200'
               }`}
               title="Français"
             >
-              <span>🇫🇷</span>
-              <span className="hidden sm:inline">FR</span>
+              FR
             </button>
             <button
               onClick={() => setLanguage('en')}
-              className={`px-2 py-1 rounded-lg transition-all flex items-center gap-1 ${
+              className={`px-3 py-1 rounded-full transition-all ${
                 language === 'en'
-                  ? 'bg-[#D4A017] text-[#1C1C1C] font-black shadow-sm'
-                  : 'text-zinc-400 hover:text-white'
+                  ? 'bg-[#D4A017] text-black font-semibold shadow-sm'
+                  : 'text-gray-400 hover:text-gray-200'
               }`}
               title="English"
             >
-              <span>🇬🇧</span>
-              <span className="hidden sm:inline">EN</span>
+              EN
             </button>
           </div>
 
-          {/* Currency Switcher */}
-          <div className="flex items-center bg-[#262626] border border-[#333333] rounded-xl p-0.5 md:p-1 text-[11px] md:text-xs font-bold">
+          {/* Vertical Separator */}
+          <div className="hidden sm:block w-px h-6 bg-white/10" />
+
+          {/* Currency Switcher Pill */}
+          <div className="shrink-0 flex items-center gap-0.5 bg-[#1C1C1C] rounded-full px-1 py-1 text-xs">
             {(['MAD', 'EUR', 'USD'] as const).map((c) => (
               <button
                 key={c}
                 onClick={() => setCurrency(c)}
-                className={`px-1.5 sm:px-2.5 py-1 rounded-lg transition-colors ${
+                className={`shrink-0 whitespace-nowrap px-2.5 py-1 rounded-full transition-all ${
                   currency === c 
-                    ? 'bg-[#D4A017] text-[#1C1C1C]' 
-                    : 'text-zinc-400 hover:text-white'
+                    ? 'bg-[#D4A017] text-black font-semibold shadow-sm' 
+                    : 'text-gray-400 hover:text-gray-200'
                 }`}
               >
                 {c}
@@ -156,22 +216,75 @@ export const Header: React.FC<HeaderProps> = ({
             ))}
           </div>
 
+          {/* Vertical Separator */}
+          <div className="hidden lg:block w-px h-6 bg-white/10" />
+
           {/* Date Filter (Desktop) */}
-          <div className="hidden lg:flex items-center gap-2 bg-[#262626] border border-[#333333] px-3 py-1.5 rounded-xl text-xs font-semibold text-[#F4F4F2]">
-            <Calendar className="w-3.5 h-3.5 text-[#D4A017]" />
-            <select
-              value={dateRange}
-              onChange={(e) => setDateRange(e.target.value as DateFilterRange)}
-              className="bg-transparent text-[#F4F4F2] focus:outline-none cursor-pointer font-semibold"
+          <div className="hidden lg:flex relative items-center" ref={dateFilterRef}>
+            <button
+              onClick={() => setShowDateFilter(!showDateFilter)}
+              className="flex items-center gap-2 bg-[#1C1C1C] border border-zinc-700 px-3 py-1.5 rounded-xl text-xs font-semibold transition-all hover:border-[#D4A017]"
             >
-              <option value="today" className="bg-[#1C1C1C]">{t('common.today')}</option>
-              <option value="this_week" className="bg-[#1C1C1C]">{t('common.this_week')}</option>
-              <option value="this_month" className="bg-[#1C1C1C]">{t('common.this_month')}</option>
-              <option value="last_month" className="bg-[#1C1C1C]">{t('common.last_month')}</option>
-              <option value="this_quarter" className="bg-[#1C1C1C]">{t('common.this_quarter')}</option>
-              <option value="this_year" className="bg-[#1C1C1C]">{t('common.this_year')}</option>
-              <option value="all" className="bg-[#1C1C1C]">{t('common.all_time')}</option>
-            </select>
+              <Calendar className="w-3.5 h-3.5 text-[#D4A017]" />
+              <span className="text-[#D4A017] whitespace-nowrap">{dateButtonLabel}</span>
+              <ChevronDown className={`w-3 h-3 text-[#D4A017] transition-transform ${showDateFilter ? 'rotate-180' : ''}`} />
+            </button>
+
+            {showDateFilter && (
+              <div className="absolute top-full right-0 mt-2 z-[60] w-fit shrink-0 origin-top-right animate-fadeIn">
+                {dateRange !== 'custom' && (
+                  <div className="w-56 bg-[#1A1A1A] border border-[#2D2D2D] rounded-xl shadow-2xl p-1.5">
+                    {dateOptions.map((opt) => {
+                      const isSelected = dateRange === opt.value;
+                      return (
+                        <button
+                          key={opt.value}
+                          onClick={() => {
+                            setDateRange(opt.value);
+                            setShowDateFilter(false);
+                          }}
+                          className={`flex items-center w-full px-3 py-2 text-xs rounded-lg transition-colors ${
+                            isSelected
+                              ? 'bg-[#D4A017]/15 text-[#D4A017] font-semibold'
+                              : 'text-zinc-300 hover:bg-white/5 hover:text-white'
+                          }`}
+                        >
+                          {t(opt.labelKey)}
+                        </button>
+                      );
+                    })}
+
+                    <div className="border-t border-white/10 pt-1.5 mt-1.5">
+                      <button
+                        onClick={() => {
+                          setDateRange('custom');
+                        }}
+                        className={`flex items-center gap-2 w-full px-3 py-2 text-xs rounded-lg transition-colors ${
+                          dateRange === 'custom'
+                            ? 'bg-[#D4A017]/15 text-[#D4A017] font-semibold'
+                            : 'text-zinc-300 hover:bg-white/5 hover:text-white'
+                        }`}
+                      >
+                        <Calendar className="w-3.5 h-3.5 text-[#D4A017] shrink-0" />
+                        {t('common.custom_range')}
+                      </button>
+                    </div>
+                  </div>
+                )}
+
+                {dateRange === 'custom' && (
+                  <DateRangePicker
+                    startDate={customStartDate}
+                    endDate={customEndDate}
+                    onChange={({ startDate, endDate }) => {
+                      setCustomStartDate(startDate);
+                      setCustomEndDate(endDate);
+                    }}
+                    className="shrink-0"
+                  />
+                )}
+              </div>
+            )}
           </div>
 
           {/* Notifications Button */}

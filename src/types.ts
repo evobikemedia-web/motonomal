@@ -399,4 +399,4 @@ export interface BusinessSettings {
   updatedAt: string;
 }
 
-export type DateFilterRange = 'today' | 'this_week' | 'this_month' | 'last_month' | 'this_quarter' | 'this_year' | 'all';
+export type DateFilterRange = 'today' | 'this_week' | 'this_month' | 'last_month' | 'this_quarter' | 'this_year' | 'all' | 'custom';

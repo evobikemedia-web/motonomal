@@ -33,6 +33,12 @@ const MainAppContent: React.FC = () => {
   const [activeTab, setActiveTab] = useState<string>('dashboard');
   const [currency, setCurrency] = useState<'MAD' | 'EUR' | 'USD'>('MAD');
   const [dateRange, setDateRange] = useState<DateFilterRange>('this_month');
+  const [customStartDate, setCustomStartDate] = useState<string>(() => new Date().toISOString().split('T')[0]);
+  const [customEndDate, setCustomEndDate] = useState<string>(() => {
+    const d = new Date();
+    d.setDate(d.getDate() + 7);
+    return d.toISOString().split('T')[0];
+  });
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
 
@@ -117,6 +123,10 @@ const MainAppContent: React.FC = () => {
           setCurrency={setCurrency}
           dateRange={dateRange}
           setDateRange={setDateRange}
+          customStartDate={customStartDate}
+          setCustomStartDate={setCustomStartDate}
+          customEndDate={customEndDate}
+          setCustomEndDate={setCustomEndDate}
           onQuickAction={handleQuickAction}
         />
 
@@ -127,6 +137,11 @@ const MainAppContent: React.FC = () => {
             <ExecutiveDashboard
               currency={currency}
               dateRange={dateRange}
+              setDateRange={setDateRange}
+              customStartDate={customStartDate}
+              setCustomStartDate={setCustomStartDate}
+              customEndDate={customEndDate}
+              setCustomEndDate={setCustomEndDate}
               motorcycles={motorcycles}
               reservations={reservations}
               revenues={revenues}
