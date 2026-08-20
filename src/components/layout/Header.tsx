@@ -20,6 +20,7 @@ interface HeaderProps {
   customEndDate: string;
   setCustomEndDate: (d: string) => void;
   onQuickAction: (actionType: 'reservation' | 'client' | 'motorcycle') => void;
+  setActiveTab: (tab: string) => void;
 }
 
 export const Header: React.FC<HeaderProps> = ({
@@ -33,6 +34,7 @@ export const Header: React.FC<HeaderProps> = ({
   setCustomStartDate,
   customEndDate,
   setCustomEndDate,
+    setActiveTab,
   onQuickAction,
 }) => {
   const { t, language, setLanguage } = useLanguage();
@@ -94,6 +96,25 @@ export const Header: React.FC<HeaderProps> = ({
       ? t(dateOptions.find((o) => o.value === dateRange)!.labelKey)
       : dateRange;
 
+  // Helper function to navigate based on search result category
+  const handleSearchNavigation = (category: string, itemId: string, itemName: string) => {
+    const navigationMap: { [key: string]: string } = {
+      vehicles: 'fleet',
+      clients: 'clients',
+      expenses: 'finance',
+      reports: 'reports',
+    };
+
+    const tabName = navigationMap[category];
+    if (tabName) {
+      setActiveTab(tabName);
+      alert(`Ouverture de la page : ${itemName} (${tabName})`);
+    } else {
+      console.log(`Navigating to: ${itemName} in category: ${category}`);
+    }
+
+    setSearchQuery('');
+  };
   useEffect(() => {
     const handleOnline = () => setIsOffline(false);
     const handleOffline = () => setIsOffline(true);
@@ -223,7 +244,7 @@ export const Header: React.FC<HeaderProps> = ({
                       return (
                         <div
                           key={item.id}
-                          onClick={() => setSearchQuery('')}
+                          onClick={() => handleSearchNavigation(category, item.id, item.name)}
                           className={`p-3 flex items-center gap-3 cursor-pointer text-gray-300 hover:bg-white/5 transition-colors ${
                             idx < items.length - 1 ? 'border-b border-zinc-800/50' : ''
                           }`}

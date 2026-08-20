@@ -182,8 +182,15 @@ export const FleetModule: React.FC<FleetModuleProps> = ({
   const totalFleetMaintenance = motorcycles.reduce((acc, m) => acc + m.totalMaintenanceCost, 0);
   const netFleetProfit = totalFleetRevenue - totalFleetMaintenance;
 
+  const getFleetStatusClass = (status: MotorcycleStatus) => {
+    if (status === 'Available') return 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/20';
+    if (status === 'Maintenance') return 'bg-rose-500/10 text-rose-400 border border-rose-500/20';
+    if (status === 'Rented' || status === 'Reserved') return 'bg-[#D4A017]/10 text-[#D4A017] border border-[#D4A017]/20';
+    return 'bg-zinc-500/10 text-zinc-400 border border-zinc-500/20';
+  };
+
   return (
-    <div className="space-y-6 animate-fadeIn">
+    <div className="min-h-full space-y-6 bg-[#141414] animate-fadeIn">
       {/* Fleet Dashboard KPI Header */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
         <div className="p-4 rounded-2xl bg-[#1C1C1C] border border-[#2D2D2D]">
@@ -236,9 +243,9 @@ export const FleetModule: React.FC<FleetModuleProps> = ({
 
           <button
             onClick={handleOpenAdd}
-            className="flex items-center gap-2 px-4 py-2.5 rounded-xl text-xs font-bold bg-[#D4A017] text-[#1C1C1C] hover:bg-[#b88a10] transition-colors shadow-lg shadow-[#D4A017]/10"
+            className="flex items-center gap-2 px-4 py-2.5 rounded-xl text-xs font-bold bg-[#D4A017] text-black hover:bg-[#b8860b] transition-colors shadow-lg shadow-[#D4A017]/10"
           >
-            <Plus className="w-4 h-4 stroke-[3]" /> Add Motorcycle
+            <Plus className="w-4 h-4 stroke-[3]" /> Ajouter un véhicule
           </button>
         </div>
       </div>
@@ -292,7 +299,7 @@ export const FleetModule: React.FC<FleetModuleProps> = ({
                 <div
                   key={bike.id}
                   onClick={() => setSelectedBike(bike)}
-                  className="group relative rounded-2xl bg-[#1C1C1C] border border-[#2D2D2D] hover:border-[#D4A017] transition-all overflow-hidden shadow-xl cursor-pointer flex flex-col justify-between"
+                  className="premium-spotlight-card group relative rounded-xl bg-[#1C1C1C] border border-zinc-800 hover:border-[#D4A017] transition-all overflow-hidden shadow-xl cursor-pointer flex flex-col justify-between"
                 >
                   {/* Photo Header */}
                   <div className="relative h-44 w-full bg-[#141414] overflow-hidden">
@@ -302,7 +309,10 @@ export const FleetModule: React.FC<FleetModuleProps> = ({
                       className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
                     />
                     <div className="absolute top-3 left-3">
-                      <Badge status={bike.currentStatus} />
+                      <span className={`inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-xs font-semibold tracking-wide whitespace-nowrap ${getFleetStatusClass(bike.currentStatus)}`}>
+                        <span className="h-1.5 w-1.5 rounded-full bg-current" />
+                        {bike.currentStatus === 'Available' ? 'Disponible' : bike.currentStatus === 'Maintenance' ? 'Maintenance' : bike.currentStatus === 'Rented' || bike.currentStatus === 'Reserved' ? 'En location' : bike.currentStatus}
+                      </span>
                     </div>
                     <div className="absolute bottom-3 right-3 px-2.5 py-1 rounded-lg bg-black/80 backdrop-blur-sm text-xs font-mono font-bold text-[#D4A017] border border-[#D4A017]/30">
                       {bike.registrationNumber}
@@ -323,7 +333,7 @@ export const FleetModule: React.FC<FleetModuleProps> = ({
                     <div className="grid grid-cols-2 gap-2 text-xs pt-2 border-t border-[#2A2A2A]">
                       <div>
                         <span className="text-zinc-500 block text-[10px]">Daily Rate</span>
-                        <span className="font-bold text-[#F4F4F2]">{formatCurrency(bike.dailyPrice, currency)}</span>
+                        <span className="font-black text-[#D4A017]">{formatCurrency(bike.dailyPrice, currency)} / jour</span>
                       </div>
                       <div>
                         <span className="text-zinc-500 block text-[10px]">Current Mileage</span>

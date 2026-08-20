@@ -127,6 +127,7 @@ const MainAppContent: React.FC = () => {
           setCustomStartDate={setCustomStartDate}
           customEndDate={customEndDate}
           setCustomEndDate={setCustomEndDate}
+                    setActiveTab={setActiveTab}
           onQuickAction={handleQuickAction}
         />
 
