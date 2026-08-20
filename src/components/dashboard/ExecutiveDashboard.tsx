@@ -1,4 +1,4 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import {
   TrendingUp, TrendingDown, DollarSign, Bike, Calendar, Users,
   Wrench, Compass, Award, ArrowUpRight, ShieldCheck, Activity, Layers, ArrowDownRight,
@@ -87,6 +87,12 @@ export const ExecutiveDashboard: React.FC<ExecutiveDashboardProps> = ({
   const [isSimulatorOpen, setIsSimulatorOpen] = useState(false);
   const [isTargetsOpen, setIsTargetsOpen] = useState(false);
   const [targets, setTargets] = useState<ManagementTargets>(DEFAULT_MANAGEMENT_TARGETS);
+
+  // Animation State - triggers staggered fade-in-up animations on mount
+  const [isLoaded, setIsLoaded] = useState(false);
+  useEffect(() => {
+    setIsLoaded(true);
+  }, []);
 
   // Drill Down Modal State
   const [drillDownState, setDrillDownState] = useState<{
@@ -735,7 +741,7 @@ export const ExecutiveDashboard: React.FC<ExecutiveDashboardProps> = ({
       {/* ---------------------------------------------------- */}
       {/* 2. DYNAMIC MANAGEMENT SUMMARY BANNER                */}
       {/* ---------------------------------------------------- */}
-      <div className="p-4 rounded-2xl bg-gradient-to-r from-[#1C180E] via-[#1A1A1A] to-[#121212] border border-[#D4A017]/30 shadow-xl shadow-[#D4A017]/10 relative overflow-hidden">
+      <div className={`p-4 rounded-2xl bg-gradient-to-r from-[#1C180E] via-[#1A1A1A] to-[#121212] border border-[#D4A017]/30 shadow-xl shadow-[#D4A017]/10 relative overflow-hidden ${isLoaded ? 'animate-fade-in-up animation-delay-100' : ''}`}>
         <div className="absolute top-0 right-0 w-64 h-full bg-[#D4A017]/8 rounded-full blur-2xl pointer-events-none" />
         <div className="flex items-start gap-3 relative z-10">
           <div className="p-2.5 rounded-xl bg-[#D4A017]/15 text-[#D4A017] border border-[#D4A017]/30 mt-0.5 shrink-0 shadow-inner shadow-[#D4A017]/10">
@@ -756,7 +762,7 @@ export const ExecutiveDashboard: React.FC<ExecutiveDashboardProps> = ({
       {/* 3. MANAGEMENT ALERTS & NOTIFICATIONS ticker          */}
       {/* ---------------------------------------------------- */}
       {alerts.length > 0 && (
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
+        <div className={`grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3 ${isLoaded ? 'animate-fade-in-up animation-delay-200' : ''}`}>
           {alerts.slice(0, 3).map((a) => {
             const severity = a.type === 'danger' ? 'Critical' : a.type === 'warning' ? 'Review' : 'Info';
             const severityClass = a.type === 'danger'
@@ -799,7 +805,7 @@ export const ExecutiveDashboard: React.FC<ExecutiveDashboardProps> = ({
       {/* ---------------------------------------------------- */}
       {/* 4. PRIMARY EXECUTIVE KPI CARDS GRID (Clickable)      */}
       {/* ---------------------------------------------------- */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+      <div className={`grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 ${isLoaded ? 'animate-fade-in-up animation-delay-300' : ''}`}>
         {/* Total Fleet Investment */}
         <div
           onClick={() =>
@@ -810,7 +816,7 @@ export const ExecutiveDashboard: React.FC<ExecutiveDashboardProps> = ({
               'motorcycles'
             )
           }
-          className="p-5 bg-[#1C1C1C] rounded-xl border border-zinc-800 transition-all cursor-pointer group shadow-xl relative overflow-hidden group-hover:scale-[1.02]"
+          className="p-5 bg-[#1C1C1C] rounded-xl border border-zinc-800 transition-all duration-300 ease-out cursor-pointer group shadow-xl relative overflow-hidden hover:scale-[1.02] hover:border-zinc-700/80 hover:shadow-2xl hover:shadow-black/50"
         >
           <div className="flex items-center justify-between mb-2">
             <span className="text-zinc-400 text-xs font-bold uppercase tracking-wider">Total Fleet Investment</span>
@@ -837,7 +843,7 @@ export const ExecutiveDashboard: React.FC<ExecutiveDashboardProps> = ({
               'depreciation'
             )
           }
-          className="p-5 bg-[#1C1C1C] rounded-xl border border-zinc-800 transition-all cursor-pointer group shadow-xl group-hover:scale-[1.02]"
+          className="p-5 bg-[#1C1C1C] rounded-xl border border-zinc-800 transition-all duration-300 ease-out cursor-pointer group shadow-xl hover:scale-[1.02] hover:border-zinc-700/80 hover:shadow-2xl hover:shadow-black/50"
         >
           <div className="flex items-center justify-between mb-2">
             <span className="text-zinc-400 text-xs font-bold uppercase tracking-wider">Current Book Value</span>
@@ -864,7 +870,7 @@ export const ExecutiveDashboard: React.FC<ExecutiveDashboardProps> = ({
               'depreciation'
             )
           }
-          className="p-5 bg-[#1C1C1C] rounded-xl border border-zinc-800 transition-all cursor-pointer group shadow-xl group-hover:scale-[1.02]"
+          className="p-5 bg-[#1C1C1C] rounded-xl border border-zinc-800 transition-all duration-300 ease-out cursor-pointer group shadow-xl hover:scale-[1.02] hover:border-zinc-700/80 hover:shadow-2xl hover:shadow-black/50"
         >
           <div className="flex items-center justify-between mb-2">
             <span className="text-zinc-400 text-xs font-bold uppercase tracking-wider">Accumulated Depreciation</span>
@@ -891,7 +897,7 @@ export const ExecutiveDashboard: React.FC<ExecutiveDashboardProps> = ({
               'revenue'
             )
           }
-          className="p-5 bg-[#1C1C1C] rounded-xl border border-zinc-800 transition-all cursor-pointer group shadow-xl group-hover:scale-[1.02] shadow-[#D4A017]/5"
+          className="p-5 bg-[#1C1C1C] rounded-xl border border-zinc-800 transition-all duration-300 ease-out cursor-pointer group shadow-xl hover:scale-[1.02] hover:border-zinc-700/80 hover:shadow-2xl hover:shadow-black/50 shadow-[#D4A017]/5"
         >
           <div className="flex items-center justify-between mb-2">
             <span className="text-zinc-400 text-xs font-bold uppercase tracking-wider">Net Profit</span>
@@ -1020,7 +1026,7 @@ export const ExecutiveDashboard: React.FC<ExecutiveDashboardProps> = ({
       {/* ---------------------------------------------------- */}
       {/* 5. MANAGEMENT TARGETS VS ACTUAL PROGRESS             */}
       {/* ---------------------------------------------------- */}
-      <div className="p-6 bg-[#1C1C1C] rounded-xl border border-zinc-800 shadow-xl space-y-4">
+      <div className={`p-6 bg-[#1C1C1C] rounded-xl border border-zinc-800 shadow-xl space-y-4 ${isLoaded ? 'animate-fade-in-up animation-delay-300' : ''}`}>
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-2">
             <Target className="w-5 h-5 text-[#D4A017]" />
@@ -1043,7 +1049,7 @@ export const ExecutiveDashboard: React.FC<ExecutiveDashboardProps> = ({
             </div>
             <div className="w-full bg-[#2D2D2D] h-2 rounded-full overflow-hidden">
               <div
-                className="h-full rounded-full bg-[#D4A017] transition-all duration-500"
+                className="h-full rounded-full bg-[#D4A017] bar-transition"
                 style={{ width: `${Math.min(100, calculateTargetAchievement(totalRevenue, targets.monthlyRevenueTarget))}%` }}
               />
             </div>
@@ -1061,7 +1067,7 @@ export const ExecutiveDashboard: React.FC<ExecutiveDashboardProps> = ({
             </div>
             <div className="w-full bg-[#2D2D2D] h-2 rounded-full overflow-hidden">
               <div
-                className={`h-full rounded-full transition-all duration-500 ${
+                className={`h-full rounded-full bar-transition ${
                   calculateTargetAchievement(utilizationRes.utilizationRate, targets.fleetUtilizationTarget) < 70 ? 'bg-rose-600' : 'bg-emerald-600'
                 }`}
                 style={{ width: `${Math.min(100, calculateTargetAchievement(utilizationRes.utilizationRate, targets.fleetUtilizationTarget))}%` }}
@@ -1081,7 +1087,7 @@ export const ExecutiveDashboard: React.FC<ExecutiveDashboardProps> = ({
             </div>
             <div className="w-full bg-[#2D2D2D] h-2 rounded-full overflow-hidden">
               <div
-                className="h-full rounded-full bg-[#D4A017] transition-all duration-500"
+                className="h-full rounded-full bg-[#D4A017] bar-transition"
                 style={{ width: `${Math.min(100, calculateTargetAchievement(profitMargin, targets.profitMarginTarget))}%` }}
               />
             </div>
@@ -1099,7 +1105,7 @@ export const ExecutiveDashboard: React.FC<ExecutiveDashboardProps> = ({
             </div>
             <div className="w-full bg-[#2D2D2D] h-2 rounded-full overflow-hidden">
               <div
-                className="h-full rounded-full bg-emerald-600 transition-all duration-500"
+                className="h-full rounded-full bg-emerald-600 bar-transition"
                 style={{ width: `${Math.min(100, investmentRecoveryPercent)}%` }}
               />
             </div>
