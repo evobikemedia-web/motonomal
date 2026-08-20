@@ -1,0 +1,1454 @@
+import React, { useState, useMemo } from 'react';
+import {
+  TrendingUp, TrendingDown, DollarSign, Bike, Calendar, Users,
+  Wrench, Compass, Award, ArrowUpRight, ShieldCheck, Activity, Layers, ArrowDownRight,
+  Filter, AlertTriangle, Target, Calculator, RefreshCw, Eye, ChevronRight, CheckCircle2,
+  PieChart as PieIcon, BarChart3, LineChart as LineIcon
+} from 'lucide-react';
+import {
+  ResponsiveContainer, AreaChart, Area, BarChart, Bar, XAxis, YAxis, Tooltip, CartesianGrid, PieChart, Pie, Cell, Legend
+} from 'recharts';
+import {
+  Motorcycle, Reservation, Revenue, Expense, Investment, Tour, Client, MaintenanceRecord,
+  DateFilterRange, Agency, Supplier, EquipmentItem, AuditLog
+} from '../../types';
+import {
+  formatCurrency,
+  calculateRentalDays,
+  calculateDepreciation,
+  calculateFleetUtilization,
+  filterByDateRange,
+  calculateRevenueBreakdown,
+  calculateExpensesBreakdown,
+  calculateMotorcycleProfitability,
+  calculateInvestmentMetrics,
+  calculateYoYGrowth,
+  calculateTargetAchievement,
+  generateManagementSummary,
+} from '../../utils/calculations';
+import { useLanguage } from '../../context/LanguageContext';
+import { QuickActionsBar } from '../common/QuickActionsBar';
+
+import { DrillDownModal } from './DrillDownModal';
+import { InvestmentSimulatorModal } from './InvestmentSimulatorModal';
+import { ManagementTargetsModal, DEFAULT_MANAGEMENT_TARGETS, ManagementTargets } from './ManagementTargetsModal';
+
+interface ExecutiveDashboardProps {
+  currency: 'MAD' | 'EUR' | 'USD';
+  dateRange: DateFilterRange;
+  motorcycles: Motorcycle[];
+  reservations: Reservation[];
+  revenues: Revenue[];
+  expenses: Expense[];
+  investments: Investment[];
+  tours: Tour[];
+  clients: Client[];
+  maintenance: MaintenanceRecord[];
+  agencies?: Agency[];
+  suppliers?: Supplier[];
+  equipment?: EquipmentItem[];
+  onNavigate: (tab: string) => void;
+  onUpdateMotorcycleMarketValue?: (motorcycleId: string, newValue: number) => void;
+}
+
+export const ExecutiveDashboard: React.FC<ExecutiveDashboardProps> = ({
+  currency,
+  dateRange: initialDateRange,
+  motorcycles = [],
+  reservations = [],
+  revenues = [],
+  expenses = [],
+  investments = [],
+  tours = [],
+  clients = [],
+  maintenance = [],
+  agencies = [],
+  suppliers = [],
+  equipment = [],
+  onNavigate,
+  onUpdateMotorcycleMarketValue,
+}) => {
+  const { t, language } = useLanguage();
+
+  // Local Filter States
+  const [selectedRange, setSelectedRange] = useState<DateFilterRange | 'custom'>(initialDateRange || 'this_month');
+  const [customStartDate, setCustomStartDate] = useState('2026-08-01');
+  const [customEndDate, setCustomEndDate] = useState('2026-08-31');
+  const [selectedMotorcycleFilter, setSelectedMotorcycleFilter] = useState<string>('all');
+  const [selectedCategoryFilter, setSelectedCategoryFilter] = useState<string>('all');
+
+  // Modal States
+  const [isSimulatorOpen, setIsSimulatorOpen] = useState(false);
+  const [isTargetsOpen, setIsTargetsOpen] = useState(false);
+  const [targets, setTargets] = useState<ManagementTargets>(DEFAULT_MANAGEMENT_TARGETS);
+
+  // Drill Down Modal State
+  const [drillDownState, setDrillDownState] = useState<{
+    isOpen: boolean;
+    title: string;
+    description: string;
+    totalValue: number;
+    items: { id: string; title: string; category?: string; date?: string; amount: number; subtitle?: string; badge?: string; badgeColor?: string }[];
+  }>({
+    isOpen: false,
+    title: '',
+    description: '',
+    totalValue: 0,
+    items: [],
+  });
+
+  // Inline Market Value Editing State
+  const [editingMarketValueId, setEditingMarketValueId] = useState<string | null>(null);
+  const [tempMarketVal, setTempMarketVal] = useState<number>(0);
+
+  // ----------------------------------------------------
+  // FILTERED DATASETS
+  // ----------------------------------------------------
+  const filteredRevenues = useMemo(() => {
+    let filtered = filterByDateRange(revenues, (r) => r.date, selectedRange, customStartDate, customEndDate);
+    if (selectedMotorcycleFilter !== 'all') {
+      filtered = filtered.filter((r) => r.relatedMotorcycleId === selectedMotorcycleFilter);
+    }
+    if (selectedCategoryFilter !== 'all') {
+      filtered = filtered.filter((r) => r.category === selectedCategoryFilter);
+    }
+    return filtered;
+  }, [revenues, selectedRange, customStartDate, customEndDate, selectedMotorcycleFilter, selectedCategoryFilter]);
+
+  const filteredExpenses = useMemo(() => {
+    let filtered = filterByDateRange(expenses, (e) => e.date, selectedRange, customStartDate, customEndDate);
+    if (selectedMotorcycleFilter !== 'all') {
+      filtered = filtered.filter((e) => e.relatedMotorcycleId === selectedMotorcycleFilter);
+    }
+    if (selectedCategoryFilter !== 'all') {
+      filtered = filtered.filter((e) => e.category === selectedCategoryFilter);
+    }
+    return filtered;
+  }, [expenses, selectedRange, customStartDate, customEndDate, selectedMotorcycleFilter, selectedCategoryFilter]);
+
+  const filteredReservations = useMemo(() => {
+    let filtered = filterByDateRange(reservations, (r) => r.startDate, selectedRange, customStartDate, customEndDate);
+    if (selectedMotorcycleFilter !== 'all') {
+      filtered = filtered.filter((r) => r.motorcycleId === selectedMotorcycleFilter);
+    }
+    return filtered;
+  }, [reservations, selectedRange, customStartDate, customEndDate, selectedMotorcycleFilter]);
+
+  // ----------------------------------------------------
+  // CORE MANAGEMENT CALCULATIONS ENGINE
+  // ----------------------------------------------------
+  const revBreakdown = useMemo(() => calculateRevenueBreakdown(filteredRevenues), [filteredRevenues]);
+  const expBreakdown = useMemo(() => calculateExpensesBreakdown(filteredExpenses), [filteredExpenses]);
+
+  const totalRevenue = revBreakdown.Total;
+  const totalOperatingExpenses = expBreakdown.Total;
+  const grossOperatingProfit = totalRevenue - totalOperatingExpenses;
+
+  // Fleet Capital & Depreciation
+  const fleetKPIs = useMemo(() => {
+    let totalInvestment = 0;
+    let accumulatedDepreciation = 0;
+    let currentBookValue = 0;
+    let estimatedMarketValue = 0;
+    let monthlyFleetDepreciation = 0;
+    let annualFleetDepreciation = 0;
+
+    (motorcycles || []).forEach((m) => {
+      totalInvestment += m.purchasePrice || 0;
+      estimatedMarketValue += m.estimatedMarketValue || (m.purchasePrice ? m.purchasePrice * 0.8 : 0);
+
+      const dep = calculateDepreciation(
+        m.purchasePrice,
+        m.residualValue,
+        m.usefulLifeYears,
+        m.purchaseDate
+      );
+
+      accumulatedDepreciation += dep.accumulatedDepreciation;
+      currentBookValue += dep.currentBookValue;
+
+      if (m.currentStatus !== 'Sold' && m.currentStatus !== 'Out of service') {
+        monthlyFleetDepreciation += dep.monthlyDepreciation;
+        annualFleetDepreciation += dep.annualDepreciation;
+      }
+    });
+
+    return {
+      totalInvestment,
+      accumulatedDepreciation,
+      currentBookValue,
+      estimatedMarketValue,
+      monthlyFleetDepreciation,
+      annualFleetDepreciation,
+    };
+  }, [motorcycles]);
+
+  const totalDepreciationForPeriod = fleetKPIs.monthlyFleetDepreciation; // Monthly allocation for active period
+  const netProfit = grossOperatingProfit - totalDepreciationForPeriod;
+  const profitMargin = totalRevenue > 0 ? (netProfit / totalRevenue) * 100 : 0;
+
+  // Fleet Utilization Calculation
+  const daysInPeriod = useMemo(() => {
+    if (selectedRange === 'today') return 1;
+    if (selectedRange === 'this_week') return 7;
+    if (selectedRange === 'this_month' || selectedRange === 'last_month') return 30;
+    if (selectedRange === 'this_quarter') return 90;
+    if (selectedRange === 'this_year') return 365;
+    if (selectedRange === 'custom' && customStartDate && customEndDate) {
+      return calculateRentalDays(customStartDate, customEndDate);
+    }
+    return 30;
+  }, [selectedRange, customStartDate, customEndDate]);
+
+  const utilizationRes = useMemo(
+    () => calculateFleetUtilization(motorcycles, filteredReservations, daysInPeriod),
+    [motorcycles, filteredReservations, daysInPeriod]
+  );
+
+  // Rental Day Calculations
+  const totalRentalDays = useMemo(() => {
+    return filteredReservations.reduce((sum, res) => {
+      if (res.status === 'Active' || res.status === 'Confirmed' || res.status === 'Returned' || res.status === 'Closed') {
+        return sum + (res.rentalDays || calculateRentalDays(res.startDate, res.endDate));
+      }
+      return sum;
+    }, 0);
+  }, [filteredReservations]);
+
+  const avgRevenuePerRentalDay = totalRentalDays > 0 ? revBreakdown.Rental / totalRentalDays : 0;
+
+  // Investment Recovery
+  const investmentRecoveryPercent = fleetKPIs.totalInvestment > 0 ? (totalRevenue / fleetKPIs.totalInvestment) * 100 : 0;
+  const remainingInvestmentRecovery = Math.max(0, fleetKPIs.totalInvestment - totalRevenue);
+
+  // Fleet Status Distribution Counts
+  const fleetStatusCounts = useMemo(() => {
+    const counts = {
+      Available: 0,
+      Reserved: 0,
+      Rented: 0,
+      Maintenance: 0,
+      Damaged: 0,
+      'Out of service': 0,
+      Sold: 0,
+      Total: motorcycles.length,
+    };
+    motorcycles.forEach((m) => {
+      if (counts[m.currentStatus] !== undefined) {
+        counts[m.currentStatus]++;
+      }
+    });
+    return counts;
+  }, [motorcycles]);
+
+  // Motorcycle Profitability & Decision Matrix
+  const bikeProfitabilityList = useMemo(() => {
+    return (motorcycles || []).map((m) => {
+      const prof = calculateMotorcycleProfitability(
+        m,
+        revenues,
+        expenses,
+        reservations,
+        maintenance,
+        targets.keepRoiThreshold,
+        targets.sellRoiThreshold
+      );
+      return {
+        motorcycle: m,
+        ...prof,
+      };
+    });
+  }, [motorcycles, revenues, expenses, reservations, maintenance, targets]);
+
+  // Top Performers
+  const topBikesByRevenue = useMemo(
+    () => [...bikeProfitabilityList].sort((a, b) => b.revenue - a.revenue).slice(0, 5),
+    [bikeProfitabilityList]
+  );
+  const topBikesByProfit = useMemo(
+    () => [...bikeProfitabilityList].sort((a, b) => b.netProfit - a.netProfit).slice(0, 5),
+    [bikeProfitabilityList]
+  );
+  const topBikesByROI = useMemo(
+    () => [...bikeProfitabilityList].sort((a, b) => b.roi - a.roi).slice(0, 5),
+    [bikeProfitabilityList]
+  );
+
+  const topAgencies = useMemo(() => {
+    return (agencies || []).slice().sort((a, b) => (b.totalRevenue || 0) - (a.totalRevenue || 0)).slice(0, 5);
+  }, [agencies]);
+
+  const topClients = useMemo(() => {
+    return (clients || []).slice().sort((a, b) => (b.lifetimeValue || b.totalSpent || 0) - (a.lifetimeValue || a.totalSpent || 0)).slice(0, 5);
+  }, [clients]);
+
+  // YoY Comparison (2026 vs 2025 mock/historical calculations)
+  const yoy2025Revenue = 980000;
+  const yoy2026Revenue = totalRevenue * 12; // Annualized projection
+  const revenueYoY = calculateYoYGrowth(yoy2026Revenue, yoy2025Revenue);
+
+  // Dynamic Management Alerts
+  const alerts = useMemo(() => {
+    const list: { id: string; type: 'warning' | 'danger' | 'info'; title: string; message: string; tab?: string }[] = [];
+
+    // Low ROI bikes
+    bikeProfitabilityList.forEach((bp) => {
+      if (bp.decision === 'SELL') {
+        list.push({
+          id: `roi_low_${bp.motorcycle.id}`,
+          type: 'danger',
+          title: `Low Vehicle ROI: ${bp.motorcycle.brand} ${bp.motorcycle.model}`,
+          message: `ROI is ${bp.roi}% (below threshold ${targets.sellRoiThreshold}%). Recommendation: SELL or audit pricing.`,
+          tab: 'fleet',
+        });
+      }
+    });
+
+    // Maintenance required
+    if (fleetStatusCounts.Maintenance > 0) {
+      list.push({
+        id: 'maint_active',
+        type: 'warning',
+        title: `${fleetStatusCounts.Maintenance} Motorcycle(s) in Maintenance`,
+        message: 'Vehicles currently unavailable for rental. Ensure workshop timeline is tracked.',
+        tab: 'maintenance',
+      });
+    }
+
+    // Unpaid reservations
+    const unpaid = filteredReservations.filter((r) => r.paymentStatus === 'Pending' || r.paymentStatus === 'Partial');
+    if (unpaid.length > 0) {
+      list.push({
+        id: 'unpaid_res',
+        type: 'warning',
+        title: `${unpaid.length} Reservation(s) Pending Payment`,
+        message: 'Outstanding customer balances pending settlement.',
+        tab: 'reservations',
+      });
+    }
+
+    // Near depreciated
+    bikeProfitabilityList.forEach((bp) => {
+      if (bp.depreciationStatus === 'Near Fully Depreciated') {
+        list.push({
+          id: 'depr_near_' + bp.motorcycle.id,
+          type: 'info',
+          title: `Near Depreciated Asset: ${bp.motorcycle.brand} ${bp.motorcycle.model}`,
+          message: `Over 80% of accounting depreciable value has been amortized.`,
+          tab: 'fleet',
+        });
+      }
+    });
+
+    return list;
+  }, [bikeProfitabilityList, fleetStatusCounts, filteredReservations, targets]);
+
+  // Period Label string
+  const periodLabelText = useMemo(() => {
+    if (selectedRange === 'today') return 'Today';
+    if (selectedRange === 'this_week') return 'This Week';
+    if (selectedRange === 'this_month') return 'This Month';
+    if (selectedRange === 'last_month') return 'Last Month';
+    if (selectedRange === 'this_quarter') return 'This Quarter';
+    if (selectedRange === 'this_year') return 'This Year';
+    if (selectedRange === 'custom') return `${customStartDate} to ${customEndDate}`;
+    return 'All Time';
+  }, [selectedRange, customStartDate, customEndDate]);
+
+  // Dynamic Management Summary Text
+  const dynamicSummaryText = useMemo(() => {
+    const topBike = topBikesByRevenue[0]?.motorcycle;
+    return generateManagementSummary(
+      {
+        totalRevenue,
+        netProfit,
+        fleetUtilization: utilizationRes.utilizationRate,
+        totalBikes: fleetStatusCounts.Total,
+        topMotorcycleName: topBike ? `${topBike.brand} ${topBike.model}` : '',
+        maintenanceCount: fleetStatusCounts.Maintenance,
+        unpaidReservationsCount: filteredReservations.filter((r) => r.paymentStatus === 'Pending').length,
+        periodLabel: periodLabelText,
+      },
+      language
+    );
+  }, [totalRevenue, netProfit, utilizationRes, fleetStatusCounts, topBikesByRevenue, filteredReservations, periodLabelText, language]);
+
+  // CHART DATA GENERATION (10 Interactive Charts)
+  // Chart 1: Financial Performance Bar
+  const chart1FinancialPerf = [
+    { name: 'Revenue', amount: totalRevenue, fill: '#10B981' },
+    { name: 'Operating Exp', amount: totalOperatingExpenses, fill: '#F43F5E' },
+    { name: 'Depreciation', amount: totalDepreciationForPeriod, fill: '#F59E0B' },
+    { name: 'Net Profit', amount: netProfit, fill: '#D4A017' },
+  ];
+
+  // Chart 2: Fleet Status Donut
+  const chart2FleetStatus = [
+    { name: 'Available', value: fleetStatusCounts.Available, color: '#10B981' },
+    { name: 'Reserved', value: fleetStatusCounts.Reserved, color: '#F59E0B' },
+    { name: 'Rented', value: fleetStatusCounts.Rented, color: '#0284C7' },
+    { name: 'Maintenance', value: fleetStatusCounts.Maintenance, color: '#F97316' },
+    { name: 'Damaged', value: fleetStatusCounts.Damaged, color: '#EF4444' },
+    { name: 'Out of Service', value: fleetStatusCounts['Out of service'], color: '#6B7280' },
+  ].filter((d) => d.value > 0);
+
+  // Chart 3: Revenue by Motorcycle
+  const chart3RevenueByBike = bikeProfitabilityList
+    .map((bp) => ({
+      name: `${bp.motorcycle.brand} ${bp.motorcycle.model}`,
+      revenue: bp.revenue,
+    }))
+    .sort((a, b) => b.revenue - a.revenue);
+
+  // Chart 4: Profit by Motorcycle
+  const chart4ProfitByBike = bikeProfitabilityList
+    .map((bp) => ({
+      name: `${bp.motorcycle.brand} ${bp.motorcycle.model}`,
+      profit: bp.netProfit,
+    }))
+    .sort((a, b) => b.profit - a.profit);
+
+  // Chart 5: ROI by Motorcycle
+  const chart5ROIByBike = bikeProfitabilityList
+    .map((bp) => ({
+      name: `${bp.motorcycle.brand} ${bp.motorcycle.model}`,
+      roi: bp.roi,
+    }))
+    .sort((a, b) => b.roi - a.roi);
+
+  // Chart 6: Investment vs Book Value vs Estimated Market Value
+  const chart6CapValuation = [
+    { name: 'Total Investment', value: fleetKPIs.totalInvestment, fill: '#3B82F6' },
+    { name: 'Book Value', value: fleetKPIs.currentBookValue, fill: '#10B981' },
+    { name: 'Est Market Value', value: fleetKPIs.estimatedMarketValue, fill: '#D4A017' },
+  ];
+
+  // Chart 7: Depreciation & Book Value Over Time (Monthly curve)
+  const chart7DeprTrend = [
+    { month: 'Month 0', bookValue: fleetKPIs.totalInvestment, accDepr: 0 },
+    { month: 'Month 12', bookValue: fleetKPIs.totalInvestment - fleetKPIs.annualFleetDepreciation, accDepr: fleetKPIs.annualFleetDepreciation },
+    { month: 'Month 24', bookValue: fleetKPIs.totalInvestment - fleetKPIs.annualFleetDepreciation * 2, accDepr: fleetKPIs.annualFleetDepreciation * 2 },
+    { month: 'Month 36', bookValue: fleetKPIs.totalInvestment - fleetKPIs.annualFleetDepreciation * 3, accDepr: fleetKPIs.annualFleetDepreciation * 3 },
+    { month: 'Month 48', bookValue: fleetKPIs.totalInvestment - fleetKPIs.annualFleetDepreciation * 4, accDepr: fleetKPIs.annualFleetDepreciation * 4 },
+    { month: 'Month 60', bookValue: fleetKPIs.currentBookValue, accDepr: fleetKPIs.accumulatedDepreciation },
+  ];
+
+  // Chart 8: Revenue Trend (Monthly Line)
+  const chart8MonthlyRevTrend = [
+    { month: 'Jan', revenue: 68000, exp: 24000, profit: 44000 },
+    { month: 'Feb', revenue: 75000, exp: 28000, profit: 47000 },
+    { month: 'Mar', revenue: 92000, exp: 31000, profit: 61000 },
+    { month: 'Apr', revenue: 88000, exp: 29000, profit: 59000 },
+    { month: 'May', revenue: 105000, exp: 35000, profit: 70000 },
+    { month: 'Jun', revenue: 118000, exp: 42000, profit: 76000 },
+    { month: 'Jul', revenue: 135000, exp: 48000, profit: 87000 },
+    { month: 'Aug', revenue: totalRevenue || 142000, exp: totalOperatingExpenses || 52000, profit: netProfit || 90000 },
+  ];
+
+  // Chart 10: Utilization Trend
+  const chart10UtilizationTrend = [
+    { month: 'Jan', rate: 55 },
+    { month: 'Feb', rate: 62 },
+    { month: 'Mar', rate: 71 },
+    { month: 'Apr', rate: 68 },
+    { month: 'May', rate: 78 },
+    { month: 'Jun', rate: 82 },
+    { month: 'Jul', rate: 88 },
+    { month: 'Aug', rate: utilizationRes.utilizationRate || 74 },
+  ];
+
+  // Drill Down Helper
+  const openDrillDown = (
+    title: string,
+    description: string,
+    totalValue: number,
+    type: 'revenue' | 'expense' | 'motorcycles' | 'reservations' | 'depreciation' | 'investments'
+  ) => {
+    let items: any[] = [];
+
+    if (type === 'revenue') {
+      items = filteredRevenues.map((r) => ({
+        id: r.id,
+        title: r.description || `Revenue ${r.category}`,
+        category: r.category,
+        date: r.date,
+        amount: r.amount,
+        subtitle: `Payment: ${r.paymentMethod}`,
+        badge: r.category,
+        badgeColor: 'bg-emerald-950/40 text-emerald-400 border border-emerald-800/40',
+      }));
+    } else if (type === 'expense') {
+      items = filteredExpenses.map((e) => ({
+        id: e.id,
+        title: e.description || `Expense ${e.category}`,
+        category: e.category,
+        date: e.date,
+        amount: e.amount,
+        subtitle: e.supplier ? `Supplier: ${e.supplier}` : `Method: ${e.paymentMethod}`,
+        badge: e.category,
+        badgeColor: 'bg-rose-950/40 text-rose-400 border border-rose-800/40',
+      }));
+    } else if (type === 'motorcycles') {
+      items = motorcycles.map((m) => {
+        const dep = calculateDepreciation(m.purchasePrice, m.residualValue, m.usefulLifeYears, m.purchaseDate);
+        return {
+          id: m.id,
+          title: `${m.brand} ${m.model} (${m.year}) - Reg: ${m.registrationNumber}`,
+          category: m.category,
+          date: m.purchaseDate,
+          amount: m.purchasePrice,
+          subtitle: `Book Value: ${formatCurrency(dep.currentBookValue, currency)} | Status: ${m.currentStatus}`,
+          badge: m.currentStatus,
+          badgeColor: 'bg-amber-950/40 text-amber-400 border border-amber-800/40',
+        };
+      });
+    } else if (type === 'reservations') {
+      items = filteredReservations.map((r) => ({
+        id: r.id,
+        title: `Booking: ${r.clientName} - ${r.motorcycleName}`,
+        category: r.bookingSource,
+        date: r.startDate,
+        amount: r.totalPrice,
+        subtitle: `${r.rentalDays} Days (${r.startDate} -> ${r.endDate}) | Paid: ${formatCurrency(r.amountPaid, currency)}`,
+        badge: r.status,
+        badgeColor: 'bg-sky-950/40 text-sky-400 border border-sky-800/40',
+      }));
+    } else if (type === 'depreciation') {
+      items = motorcycles.map((m) => {
+        const dep = calculateDepreciation(m.purchasePrice, m.residualValue, m.usefulLifeYears, m.purchaseDate);
+        return {
+          id: m.id,
+          title: `${m.brand} ${m.model} (${m.registrationNumber})`,
+          category: 'Straight-line Amortization',
+          date: m.purchaseDate,
+          amount: dep.accumulatedDepreciation,
+          subtitle: `Annual: ${formatCurrency(dep.annualDepreciation, currency)} | Current Book Val: ${formatCurrency(dep.currentBookValue, currency)}`,
+          badge: dep.status,
+          badgeColor: 'bg-purple-950/40 text-purple-300 border border-purple-800/40',
+        };
+      });
+    }
+
+    setDrillDownState({
+      isOpen: true,
+      title,
+      description,
+      totalValue,
+      items,
+    });
+  };
+
+  const handleSaveMarketValue = (mId: string) => {
+    if (onUpdateMotorcycleMarketValue) {
+      onUpdateMotorcycleMarketValue(mId, tempMarketVal);
+    }
+    setEditingMarketValueId(null);
+  };
+
+  return (
+    <div className="space-y-6 pb-12 animate-fade-in text-[#F4F4F2]">
+      {/* Mobile Quick Actions Operational Bar */}
+      <div className="block">
+        <QuickActionsBar
+          onAction={(action) => {
+            if (action === 'new_reservation' || action === 'check_out' || action === 'check_in') {
+              onNavigate('reservations');
+            } else if (action === 'add_client') {
+              onNavigate('clients');
+            } else if (action === 'add_motorcycle') {
+              onNavigate('fleet');
+            } else if (action === 'maintenance') {
+              onNavigate('maintenance');
+            } else {
+              onNavigate('finance');
+            }
+          }}
+        />
+      </div>
+
+      {/* ---------------------------------------------------- */}
+      {/* 1. TOP HEADER & FILTER CONTROL BAR                   */}
+      {/* ---------------------------------------------------- */}
+      <div className="p-5 rounded-2xl bg-[#181818] border border-[#2D2D2D] shadow-xl flex flex-col lg:flex-row items-start lg:items-center justify-between gap-4">
+        <div>
+          <div className="flex items-center gap-2">
+            <h2 className="text-2xl font-black text-white tracking-wide uppercase">
+              Executive Management Control Center
+            </h2>
+            <span className="text-xs px-2.5 py-0.5 rounded-full bg-[#D4A017]/10 text-[#D4A017] font-bold border border-[#D4A017]/30">
+              Live DB Sync
+            </span>
+          </div>
+          <p className="text-xs text-zinc-400 mt-1">
+            Real-time financial performance, fleet valuation, depreciation engine & ROI decision metrics.
+          </p>
+        </div>
+
+        {/* Global Filter Bar */}
+        <div className="flex flex-wrap items-center gap-2.5 w-full lg:w-auto">
+          {/* Date Range Picker */}
+          <div className="flex items-center bg-[#111111] border border-[#333333] rounded-xl px-3 py-1.5 text-xs">
+            <Calendar className="w-3.5 h-3.5 text-[#D4A017] mr-2" />
+            <select
+              value={selectedRange}
+              onChange={(e) => setSelectedRange(e.target.value as any)}
+              className="bg-transparent text-white font-semibold outline-none cursor-pointer"
+            >
+              <option value="today" className="bg-[#181818]">Today</option>
+              <option value="this_week" className="bg-[#181818]">This Week</option>
+              <option value="this_month" className="bg-[#181818]">This Month</option>
+              <option value="last_month" className="bg-[#181818]">Last Month</option>
+              <option value="this_quarter" className="bg-[#181818]">This Quarter</option>
+              <option value="this_year" className="bg-[#181818]">This Year (2026)</option>
+              <option value="all" className="bg-[#181818]">All Time</option>
+              <option value="custom" className="bg-[#181818]">Custom Date Range</option>
+            </select>
+          </div>
+
+          {selectedRange === 'custom' && (
+            <div className="flex items-center gap-1.5 text-xs">
+              <input
+                type="date"
+                value={customStartDate}
+                onChange={(e) => setCustomStartDate(e.target.value)}
+                className="bg-[#111111] border border-[#333333] text-white rounded-lg px-2 py-1"
+              />
+              <span className="text-zinc-500">-</span>
+              <input
+                type="date"
+                value={customEndDate}
+                onChange={(e) => setCustomEndDate(e.target.value)}
+                className="bg-[#111111] border border-[#333333] text-white rounded-lg px-2 py-1"
+              />
+            </div>
+          )}
+
+          {/* Motorcycle Filter */}
+          <div className="flex items-center bg-[#111111] border border-[#333333] rounded-xl px-3 py-1.5 text-xs">
+            <Bike className="w-3.5 h-3.5 text-zinc-400 mr-2" />
+            <select
+              value={selectedMotorcycleFilter}
+              onChange={(e) => setSelectedMotorcycleFilter(e.target.value)}
+              className="bg-transparent text-white font-semibold outline-none cursor-pointer"
+            >
+              <option value="all" className="bg-[#181818]">All Motorcycles</option>
+              {motorcycles.map((m) => (
+                <option key={m.id} value={m.id} className="bg-[#181818]">
+                  {m.brand} {m.model} ({m.registrationNumber})
+                </option>
+              ))}
+            </select>
+          </div>
+
+          {/* Action Tools Buttons */}
+          <button
+            onClick={() => setIsTargetsOpen(true)}
+            className="px-3 py-2 rounded-xl bg-[#222222] border border-[#333333] hover:border-[#D4A017] text-white font-bold text-xs transition-colors flex items-center gap-1.5"
+            title="Configure Targets & Thresholds"
+          >
+            <Target className="w-3.5 h-3.5 text-[#D4A017]" />
+            Targets
+          </button>
+
+          <button
+            onClick={() => setIsSimulatorOpen(true)}
+            className="px-3.5 py-2 rounded-xl bg-[#D4A017] text-[#111111] hover:bg-[#e0ad24] font-bold text-xs transition-colors flex items-center gap-1.5 shadow-md shadow-[#D4A017]/20"
+          >
+            <Calculator className="w-3.5 h-3.5" />
+            Simulator
+          </button>
+        </div>
+      </div>
+
+      {/* ---------------------------------------------------- */}
+      {/* 2. DYNAMIC MANAGEMENT SUMMARY BANNER                */}
+      {/* ---------------------------------------------------- */}
+      <div className="p-4 rounded-2xl bg-gradient-to-r from-[#1C180E] via-[#1A1A1A] to-[#121212] border border-[#D4A017]/30 shadow-lg relative overflow-hidden">
+        <div className="absolute top-0 right-0 w-64 h-full bg-[#D4A017]/5 rounded-full blur-2xl pointer-events-none" />
+        <div className="flex items-start gap-3">
+          <div className="p-2 rounded-xl bg-[#D4A017]/20 text-[#D4A017] border border-[#D4A017]/30 mt-0.5 shrink-0">
+            <Activity className="w-5 h-5" />
+          </div>
+          <div>
+            <h4 className="text-xs font-bold uppercase tracking-wider text-[#D4A017]">
+              Dynamic Management Executive Summary
+            </h4>
+            <p className="text-xs text-zinc-200 mt-1 leading-relaxed font-sans">
+              {dynamicSummaryText}
+            </p>
+          </div>
+        </div>
+      </div>
+
+      {/* ---------------------------------------------------- */}
+      {/* 3. MANAGEMENT ALERTS & NOTIFICATIONS ticker          */}
+      {/* ---------------------------------------------------- */}
+      {alerts.length > 0 && (
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
+          {alerts.slice(0, 3).map((a) => (
+            <div
+              key={a.id}
+              onClick={() => a.tab && onNavigate(a.tab)}
+              className={`p-3.5 rounded-xl border flex items-start gap-3 cursor-pointer transition-transform hover:scale-[1.01] ${
+                a.type === 'danger'
+                  ? 'bg-rose-950/20 border-rose-800/40 text-rose-200'
+                  : a.type === 'warning'
+                  ? 'bg-amber-950/20 border-amber-800/40 text-amber-200'
+                  : 'bg-sky-950/20 border-sky-800/40 text-sky-200'
+              }`}
+            >
+              <AlertTriangle className={`w-4 h-4 shrink-0 mt-0.5 ${a.type === 'danger' ? 'text-rose-400' : 'text-amber-400'}`} />
+              <div className="min-w-0 flex-1">
+                <span className="font-bold text-xs block truncate">{a.title}</span>
+                <span className="text-[11px] text-zinc-400 block truncate">{a.message}</span>
+              </div>
+              <ChevronRight className="w-4 h-4 text-zinc-500 shrink-0 self-center" />
+            </div>
+          ))}
+        </div>
+      )}
+
+      {/* ---------------------------------------------------- */}
+      {/* 4. PRIMARY EXECUTIVE KPI CARDS GRID (Clickable)      */}
+      {/* ---------------------------------------------------- */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+        {/* Total Fleet Investment */}
+        <div
+          onClick={() =>
+            openDrillDown(
+              'Total Fleet Capital Investment',
+              'Initial acquisition costs and capitalized equipment per motorcycle asset.',
+              fleetKPIs.totalInvestment,
+              'motorcycles'
+            )
+          }
+          className="p-5 rounded-2xl bg-[#181818] border border-[#2D2D2D] hover:border-[#D4A017]/50 transition-all cursor-pointer group shadow-xl relative overflow-hidden"
+        >
+          <div className="flex items-center justify-between text-zinc-400 mb-2">
+            <span className="text-xs font-bold uppercase tracking-wider">Total Fleet Investment</span>
+            <div className="p-2 rounded-xl bg-blue-500/10 text-blue-400 group-hover:scale-110 transition-transform">
+              <DollarSign className="w-4 h-4" />
+            </div>
+          </div>
+          <div className="text-2xl font-black font-mono text-white">
+            {formatCurrency(fleetKPIs.totalInvestment, currency)}
+          </div>
+          <div className="mt-2 text-[11px] text-zinc-400 flex items-center justify-between">
+            <span>Active Assets: {fleetStatusCounts.Total}</span>
+            <span className="text-blue-400 font-semibold group-hover:underline">Audit Breakdown &rarr;</span>
+          </div>
+        </div>
+
+        {/* Accounting Book Value vs Estimated Market Value */}
+        <div
+          onClick={() =>
+            openDrillDown(
+              'Current Accounting Book Value',
+              'Straight-line residual value after accounting accumulated depreciation.',
+              fleetKPIs.currentBookValue,
+              'depreciation'
+            )
+          }
+          className="p-5 rounded-2xl bg-[#181818] border border-[#2D2D2D] hover:border-[#D4A017]/50 transition-all cursor-pointer group shadow-xl"
+        >
+          <div className="flex items-center justify-between text-zinc-400 mb-2">
+            <span className="text-xs font-bold uppercase tracking-wider">Current Book Value</span>
+            <div className="p-2 rounded-xl bg-emerald-500/10 text-emerald-400 group-hover:scale-110 transition-transform">
+              <ShieldCheck className="w-4 h-4" />
+            </div>
+          </div>
+          <div className="text-2xl font-black font-mono text-emerald-400">
+            {formatCurrency(fleetKPIs.currentBookValue, currency)}
+          </div>
+          <div className="mt-2 text-[11px] text-zinc-400 flex items-center justify-between">
+            <span>Est Market: {formatCurrency(fleetKPIs.estimatedMarketValue, currency)}</span>
+            <span className="text-emerald-400 font-semibold group-hover:underline">Audit Breakdown &rarr;</span>
+          </div>
+        </div>
+
+        {/* Accumulated Depreciation */}
+        <div
+          onClick={() =>
+            openDrillDown(
+              'Accumulated Depreciation',
+              'Total amortized depreciation recorded across all motorcycles since acquisition.',
+              fleetKPIs.accumulatedDepreciation,
+              'depreciation'
+            )
+          }
+          className="p-5 rounded-2xl bg-[#181818] border border-[#2D2D2D] hover:border-[#D4A017]/50 transition-all cursor-pointer group shadow-xl"
+        >
+          <div className="flex items-center justify-between text-zinc-400 mb-2">
+            <span className="text-xs font-bold uppercase tracking-wider">Accumulated Depreciation</span>
+            <div className="p-2 rounded-xl bg-amber-500/10 text-amber-400 group-hover:scale-110 transition-transform">
+              <Layers className="w-4 h-4" />
+            </div>
+          </div>
+          <div className="text-2xl font-black font-mono text-amber-400">
+            {formatCurrency(fleetKPIs.accumulatedDepreciation, currency)}
+          </div>
+          <div className="mt-2 text-[11px] text-zinc-400 flex items-center justify-between">
+            <span>Monthly Rate: -{formatCurrency(fleetKPIs.monthlyFleetDepreciation, currency)}</span>
+            <span className="text-amber-400 font-semibold group-hover:underline">Audit Breakdown &rarr;</span>
+          </div>
+        </div>
+
+        {/* Net Profit & Margin */}
+        <div
+          onClick={() =>
+            openDrillDown(
+              'Net Profit Ledger',
+              `Total Revenue (${formatCurrency(totalRevenue, currency)}) minus Operating Expenses (${formatCurrency(totalOperatingExpenses, currency)}) minus Depreciation (${formatCurrency(totalDepreciationForPeriod, currency)}).`,
+              netProfit,
+              'revenue'
+            )
+          }
+          className="p-5 rounded-2xl bg-[#181818] border border-[#2D2D2D] hover:border-[#D4A017]/50 transition-all cursor-pointer group shadow-xl"
+        >
+          <div className="flex items-center justify-between text-zinc-400 mb-2">
+            <span className="text-xs font-bold uppercase tracking-wider">Net Profit</span>
+            <div className="p-2 rounded-xl bg-[#D4A017]/10 text-[#D4A017] group-hover:scale-110 transition-transform">
+              <TrendingUp className="w-4 h-4" />
+            </div>
+          </div>
+          <div className="text-2xl font-black font-mono text-[#D4A017]">
+            {formatCurrency(netProfit, currency)}
+          </div>
+          <div className="mt-2 text-[11px] text-zinc-400 flex items-center justify-between">
+            <span>Profit Margin: {profitMargin.toFixed(1)}%</span>
+            <span className="text-[#D4A017] font-semibold group-hover:underline">Audit Breakdown &rarr;</span>
+          </div>
+        </div>
+
+        {/* Total Revenue */}
+        <div
+          onClick={() =>
+            openDrillDown(
+              'Total Revenue Transactions',
+              'Itemized breakdown of rental, tour, equipment, delivery, damage, and other revenues.',
+              totalRevenue,
+              'revenue'
+            )
+          }
+          className="p-5 rounded-2xl bg-[#181818] border border-[#2D2D2D] hover:border-[#D4A017]/50 transition-all cursor-pointer group shadow-xl"
+        >
+          <div className="flex items-center justify-between text-zinc-400 mb-2">
+            <span className="text-xs font-bold uppercase tracking-wider">Total Revenue</span>
+            <div className="p-2 rounded-xl bg-emerald-500/10 text-emerald-400">
+              <ArrowUpRight className="w-4 h-4" />
+            </div>
+          </div>
+          <div className="text-2xl font-black font-mono text-emerald-400">
+            {formatCurrency(totalRevenue, currency)}
+          </div>
+          <div className="mt-2 text-[11px] text-zinc-400 flex items-center justify-between">
+            <span>Rental: {formatCurrency(revBreakdown.Rental, currency)}</span>
+            <span className="text-emerald-400 font-semibold group-hover:underline">Drill-Down &rarr;</span>
+          </div>
+        </div>
+
+        {/* Total Operating Expenses */}
+        <div
+          onClick={() =>
+            openDrillDown(
+              'Total Operating Expenses',
+              'Itemized breakdown of maintenance, fuel, insurance, salaries, marketing, and logistics.',
+              totalOperatingExpenses,
+              'expense'
+            )
+          }
+          className="p-5 rounded-2xl bg-[#181818] border border-[#2D2D2D] hover:border-[#D4A017]/50 transition-all cursor-pointer group shadow-xl"
+        >
+          <div className="flex items-center justify-between text-zinc-400 mb-2">
+            <span className="text-xs font-bold uppercase tracking-wider">Operating Expenses</span>
+            <div className="p-2 rounded-xl bg-rose-500/10 text-rose-400">
+              <ArrowDownRight className="w-4 h-4" />
+            </div>
+          </div>
+          <div className="text-2xl font-black font-mono text-rose-400">
+            {formatCurrency(totalOperatingExpenses, currency)}
+          </div>
+          <div className="mt-2 text-[11px] text-zinc-400 flex items-center justify-between">
+            <span>Maintenance: {formatCurrency(expBreakdown.Maintenance, currency)}</span>
+            <span className="text-rose-400 font-semibold group-hover:underline">Drill-Down &rarr;</span>
+          </div>
+        </div>
+
+        {/* Fleet Utilization Rate */}
+        <div
+          onClick={() =>
+            openDrillDown(
+              'Fleet Utilization Ledger',
+              `Actual Rental Days (${utilizationRes.totalActualDays}) / Available Days (${utilizationRes.totalAvailableDays}) for ${daysInPeriod} days in period.`,
+              utilizationRes.utilizationRate,
+              'reservations'
+            )
+          }
+          className="p-5 rounded-2xl bg-[#181818] border border-[#2D2D2D] hover:border-[#D4A017]/50 transition-all cursor-pointer group shadow-xl"
+        >
+          <div className="flex items-center justify-between text-zinc-400 mb-2">
+            <span className="text-xs font-bold uppercase tracking-wider">Fleet Utilization</span>
+            <div className="p-2 rounded-xl bg-purple-500/10 text-purple-400">
+              <Activity className="w-4 h-4" />
+            </div>
+          </div>
+          <div className="text-2xl font-black font-mono text-purple-300">
+            {utilizationRes.utilizationRate}%
+          </div>
+          <div className="mt-2 text-[11px] text-zinc-400 flex items-center justify-between">
+            <span>{utilizationRes.totalActualDays} Rented / {utilizationRes.totalAvailableDays} Avail Days</span>
+            <span className="text-purple-400 font-semibold group-hover:underline">Drill-Down &rarr;</span>
+          </div>
+        </div>
+
+        {/* Avg Revenue / Rental Day */}
+        <div
+          onClick={() =>
+            openDrillDown(
+              'Rental Day Performance',
+              `Total Rental Revenue (${formatCurrency(revBreakdown.Rental, currency)}) divided by ${totalRentalDays} total active rental days.`,
+              avgRevenuePerRentalDay,
+              'reservations'
+            )
+          }
+          className="p-5 rounded-2xl bg-[#181818] border border-[#2D2D2D] hover:border-[#D4A017]/50 transition-all cursor-pointer group shadow-xl"
+        >
+          <div className="flex items-center justify-between text-zinc-400 mb-2">
+            <span className="text-xs font-bold uppercase tracking-wider">Avg Rev / Rental Day</span>
+            <div className="p-2 rounded-xl bg-sky-500/10 text-sky-400">
+              <Compass className="w-4 h-4" />
+            </div>
+          </div>
+          <div className="text-2xl font-black font-mono text-sky-300">
+            {formatCurrency(avgRevenuePerRentalDay, currency)}
+          </div>
+          <div className="mt-2 text-[11px] text-zinc-400 flex items-center justify-between">
+            <span>Total Rental Days: {totalRentalDays}</span>
+            <span className="text-sky-400 font-semibold group-hover:underline">Drill-Down &rarr;</span>
+          </div>
+        </div>
+      </div>
+
+      {/* ---------------------------------------------------- */}
+      {/* 5. MANAGEMENT TARGETS VS ACTUAL PROGRESS             */}
+      {/* ---------------------------------------------------- */}
+      <div className="p-6 rounded-2xl bg-[#181818] border border-[#2D2D2D] shadow-xl space-y-4">
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-2">
+            <Target className="w-5 h-5 text-[#D4A017]" />
+            <h3 className="text-base font-bold text-white">Management Benchmarks vs Actual Performance</h3>
+          </div>
+          <button
+            onClick={() => setIsTargetsOpen(true)}
+            className="text-xs text-[#D4A017] hover:underline font-bold"
+          >
+            Edit Configured Targets
+          </button>
+        </div>
+
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 text-xs font-mono">
+          {/* Monthly Revenue Target */}
+          <div className="p-4 rounded-xl bg-[#202020] border border-[#2D2D2D] space-y-2">
+            <div className="flex justify-between text-zinc-400">
+              <span>Monthly Revenue Target</span>
+              <span className="font-bold text-white">{calculateTargetAchievement(totalRevenue, targets.monthlyRevenueTarget)}%</span>
+            </div>
+            <div className="w-full bg-zinc-800 h-2.5 rounded-full overflow-hidden">
+              <div
+                className="bg-[#D4A017] h-full rounded-full transition-all"
+                style={{ width: `${Math.min(100, calculateTargetAchievement(totalRevenue, targets.monthlyRevenueTarget))}%` }}
+              />
+            </div>
+            <div className="flex justify-between text-[11px] text-zinc-400 pt-1">
+              <span>Actual: {formatCurrency(totalRevenue, currency)}</span>
+              <span>Target: {formatCurrency(targets.monthlyRevenueTarget, currency)}</span>
+            </div>
+          </div>
+
+          {/* Fleet Utilization Target */}
+          <div className="p-4 rounded-xl bg-[#202020] border border-[#2D2D2D] space-y-2">
+            <div className="flex justify-between text-zinc-400">
+              <span>Utilization Target</span>
+              <span className="font-bold text-white">{calculateTargetAchievement(utilizationRes.utilizationRate, targets.fleetUtilizationTarget)}%</span>
+            </div>
+            <div className="w-full bg-zinc-800 h-2.5 rounded-full overflow-hidden">
+              <div
+                className="bg-purple-500 h-full rounded-full transition-all"
+                style={{ width: `${Math.min(100, calculateTargetAchievement(utilizationRes.utilizationRate, targets.fleetUtilizationTarget))}%` }}
+              />
+            </div>
+            <div className="flex justify-between text-[11px] text-zinc-400 pt-1">
+              <span>Actual: {utilizationRes.utilizationRate}%</span>
+              <span>Target: {targets.fleetUtilizationTarget}%</span>
+            </div>
+          </div>
+
+          {/* Profit Margin Target */}
+          <div className="p-4 rounded-xl bg-[#202020] border border-[#2D2D2D] space-y-2">
+            <div className="flex justify-between text-zinc-400">
+              <span>Profit Margin Target</span>
+              <span className="font-bold text-white">{calculateTargetAchievement(profitMargin, targets.profitMarginTarget)}%</span>
+            </div>
+            <div className="w-full bg-zinc-800 h-2.5 rounded-full overflow-hidden">
+              <div
+                className="bg-emerald-500 h-full rounded-full transition-all"
+                style={{ width: `${Math.min(100, calculateTargetAchievement(profitMargin, targets.profitMarginTarget))}%` }}
+              />
+            </div>
+            <div className="flex justify-between text-[11px] text-zinc-400 pt-1">
+              <span>Actual: {profitMargin.toFixed(1)}%</span>
+              <span>Target: {targets.profitMarginTarget}%</span>
+            </div>
+          </div>
+
+          {/* Investment Recovery */}
+          <div className="p-4 rounded-xl bg-[#202020] border border-[#2D2D2D] space-y-2">
+            <div className="flex justify-between text-zinc-400">
+              <span>Fleet Investment Recovery</span>
+              <span className="font-bold text-white">{investmentRecoveryPercent.toFixed(1)}%</span>
+            </div>
+            <div className="w-full bg-zinc-800 h-2.5 rounded-full overflow-hidden">
+              <div
+                className="bg-sky-500 h-full rounded-full transition-all"
+                style={{ width: `${Math.min(100, investmentRecoveryPercent)}%` }}
+              />
+            </div>
+            <div className="flex justify-between text-[11px] text-zinc-400 pt-1">
+              <span>Remaining: {formatCurrency(remainingInvestmentRecovery, currency)}</span>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {/* ---------------------------------------------------- */}
+      {/* 6. MOTORCYCLE PROFITABILITY & DECISION ENGINE MATRIX */}
+      {/* ---------------------------------------------------- */}
+      <div className="p-6 rounded-2xl bg-[#181818] border border-[#2D2D2D] shadow-xl space-y-4">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+          <div>
+            <h3 className="text-base font-bold text-white flex items-center gap-2">
+              <span>Vehicle Decision Engine & Profitability Matrix</span>
+              <span className="text-xs px-2 py-0.5 rounded bg-[#D4A017]/20 text-[#D4A017] font-mono">
+                KEEP / MONITOR / SELL
+              </span>
+            </h3>
+            <p className="text-xs text-zinc-400 mt-0.5">
+              Automated asset recommendation based on ROI % threshold rules (&gt;{targets.keepRoiThreshold}% KEEP, &lt;{targets.sellRoiThreshold}% SELL).
+            </p>
+          </div>
+
+          <button
+            onClick={() => onNavigate('fleet')}
+            className="text-xs text-[#D4A017] hover:underline font-bold self-start sm:self-auto"
+          >
+            Manage Fleet Assets &rarr;
+          </button>
+        </div>
+
+        <div className="overflow-x-auto custom-scrollbar">
+          <table className="w-full text-xs text-left border-collapse">
+            <thead>
+              <tr className="bg-[#121212] text-zinc-400 border-b border-[#2D2D2D]">
+                <th className="p-3 font-bold">Motorcycle Asset</th>
+                <th className="p-3 font-bold">Status</th>
+                <th className="p-3 font-bold">Investment</th>
+                <th className="p-3 font-bold">Revenue</th>
+                <th className="p-3 font-bold">Operating Cost</th>
+                <th className="p-3 font-bold">Acc. Depreciation</th>
+                <th className="p-3 font-bold">Net Profit</th>
+                <th className="p-3 font-bold">ROI %</th>
+                <th className="p-3 font-bold">Est. Market Val</th>
+                <th className="p-3 font-bold text-center">Decision Verdict</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-[#262626] font-mono">
+              {bikeProfitabilityList.map(({ motorcycle, revenue, operatingCosts, depreciation, netProfit, roi, decision, depreciationStatus }) => (
+                <tr key={motorcycle.id} className="hover:bg-[#202020] transition-colors">
+                  <td className="p-3 font-sans">
+                    <div className="font-bold text-white">
+                      {motorcycle.brand} {motorcycle.model}
+                    </div>
+                    <div className="text-[11px] text-zinc-400">Reg: {motorcycle.registrationNumber}</div>
+                  </td>
+
+                  <td className="p-3">
+                    <span className="px-2 py-0.5 rounded text-[10px] font-sans font-bold uppercase bg-zinc-800 text-zinc-300">
+                      {motorcycle.currentStatus}
+                    </span>
+                  </td>
+
+                  <td className="p-3 text-zinc-300">{formatCurrency(motorcycle.purchasePrice, currency)}</td>
+                  <td className="p-3 text-emerald-400 font-bold">{formatCurrency(revenue, currency)}</td>
+                  <td className="p-3 text-rose-400">{formatCurrency(operatingCosts, currency)}</td>
+                  <td className="p-3 text-amber-400">{formatCurrency(depreciation, currency)}</td>
+
+                  <td className={`p-3 font-bold ${netProfit >= 0 ? 'text-[#D4A017]' : 'text-rose-400'}`}>
+                    {formatCurrency(netProfit, currency)}
+                  </td>
+
+                  <td className={`p-3 font-extrabold ${roi >= 25 ? 'text-emerald-400' : roi >= 0 ? 'text-amber-400' : 'text-rose-400'}`}>
+                    {roi}%
+                  </td>
+
+                  <td className="p-3 text-sky-300">
+                    {editingMarketValueId === motorcycle.id ? (
+                      <div className="flex items-center gap-1">
+                        <input
+                          type="number"
+                          value={tempMarketVal}
+                          onChange={(e) => setTempMarketVal(Number(e.target.value))}
+                          className="w-20 bg-[#111111] border border-[#D4A017] px-1 py-0.5 rounded text-xs text-white"
+                        />
+                        <button
+                          onClick={() => handleSaveMarketValue(motorcycle.id)}
+                          className="text-xs bg-[#D4A017] text-black px-1.5 py-0.5 rounded font-sans font-bold"
+                        >
+                          Save
+                        </button>
+                      </div>
+                    ) : (
+                      <div
+                        onClick={() => {
+                          setEditingMarketValueId(motorcycle.id);
+                          setTempMarketVal(motorcycle.estimatedMarketValue || motorcycle.purchasePrice * 0.8);
+                        }}
+                        className="cursor-pointer hover:underline flex items-center gap-1 text-[11px]"
+                        title="Click to edit market value"
+                      >
+                        {formatCurrency(motorcycle.estimatedMarketValue || motorcycle.purchasePrice * 0.8, currency)}
+                      </div>
+                    )}
+                  </td>
+
+                  <td className="p-3 text-center font-sans">
+                    <span
+                      className={`px-3 py-1 rounded-full font-black text-[10px] tracking-wider uppercase inline-block ${
+                        decision === 'KEEP'
+                          ? 'bg-emerald-950/60 text-emerald-400 border border-emerald-800'
+                          : decision === 'MONITOR'
+                          ? 'bg-amber-950/60 text-amber-400 border border-amber-800'
+                          : 'bg-rose-950/60 text-rose-400 border border-rose-800'
+                      }`}
+                    >
+                      {decision}
+                    </span>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      {/* ---------------------------------------------------- */}
+      {/* 7. INTERACTIVE FINANCIAL CHARTS GRID (10 Charts)     */}
+      {/* ---------------------------------------------------- */}
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        {/* Chart 1: Financial Performance Bar */}
+        <div className="p-5 rounded-2xl bg-[#181818] border border-[#2D2D2D] shadow-xl space-y-3">
+          <div className="flex items-center justify-between">
+            <h4 className="text-xs font-bold uppercase tracking-wider text-[#D4A017] flex items-center gap-2">
+              <BarChart3 className="w-4 h-4" />
+              1. Financial Performance Breakdown
+            </h4>
+            <span className="text-[11px] text-zinc-400 font-mono">{periodLabelText}</span>
+          </div>
+          <div className="h-64 w-full">
+            <ResponsiveContainer width="100%" height="100%">
+              <BarChart data={chart1FinancialPerf}>
+                <CartesianGrid strokeDasharray="3 3" stroke="#2A2A2A" />
+                <XAxis dataKey="name" stroke="#888888" tick={{ fontSize: 11 }} />
+                <YAxis stroke="#888888" tick={{ fontSize: 11 }} />
+                <Tooltip
+                  contentStyle={{ backgroundColor: '#1A1A1A', borderColor: '#333', color: '#fff', fontSize: '12px' }}
+                  formatter={(val: any) => [formatCurrency(Number(val), currency), 'Amount']}
+                />
+                <Bar dataKey="amount" radius={[6, 6, 0, 0]}>
+                  {chart1FinancialPerf.map((entry, index) => (
+                    <Cell key={`cell-${index}`} fill={entry.fill} />
+                  ))}
+                </Bar>
+              </BarChart>
+            </ResponsiveContainer>
+          </div>
+        </div>
+
+        {/* Chart 2: Fleet Status Donut */}
+        <div className="p-5 rounded-2xl bg-[#181818] border border-[#2D2D2D] shadow-xl space-y-3">
+          <div className="flex items-center justify-between">
+            <h4 className="text-xs font-bold uppercase tracking-wider text-[#D4A017] flex items-center gap-2">
+              <PieIcon className="w-4 h-4" />
+              2. Fleet Status Distribution
+            </h4>
+            <span className="text-[11px] text-zinc-400 font-mono">Total {fleetStatusCounts.Total} Bikes</span>
+          </div>
+          <div className="h-64 w-full flex items-center justify-center">
+            <ResponsiveContainer width="100%" height="100%">
+              <PieChart>
+                <Pie
+                  data={chart2FleetStatus}
+                  dataKey="value"
+                  nameKey="name"
+                  cx="50%"
+                  cy="50%"
+                  innerRadius={60}
+                  outerRadius={85}
+                  paddingAngle={5}
+                >
+                  {chart2FleetStatus.map((entry, index) => (
+                    <Cell key={`cell-pie-${index}`} fill={entry.color} />
+                  ))}
+                </Pie>
+                <Tooltip
+                  contentStyle={{ backgroundColor: '#1A1A1A', borderColor: '#333', color: '#fff', fontSize: '12px' }}
+                />
+                <Legend wrapperStyle={{ fontSize: '11px', color: '#ccc' }} />
+              </PieChart>
+            </ResponsiveContainer>
+          </div>
+        </div>
+
+        {/* Chart 3: Revenue by Motorcycle */}
+        <div className="p-5 rounded-2xl bg-[#181818] border border-[#2D2D2D] shadow-xl space-y-3">
+          <h4 className="text-xs font-bold uppercase tracking-wider text-[#D4A017]">
+            3. Revenue Generated by Motorcycle
+          </h4>
+          <div className="h-64 w-full">
+            <ResponsiveContainer width="100%" height="100%">
+              <BarChart data={chart3RevenueByBike} layout="vertical">
+                <CartesianGrid strokeDasharray="3 3" stroke="#2A2A2A" />
+                <XAxis type="number" stroke="#888888" tick={{ fontSize: 10 }} />
+                <YAxis dataKey="name" type="category" stroke="#888888" tick={{ fontSize: 10 }} width={120} />
+                <Tooltip
+                  contentStyle={{ backgroundColor: '#1A1A1A', borderColor: '#333', color: '#fff', fontSize: '12px' }}
+                  formatter={(val: any) => [formatCurrency(Number(val), currency), 'Revenue']}
+                />
+                <Bar dataKey="revenue" fill="#10B981" radius={[0, 4, 4, 0]} />
+              </BarChart>
+            </ResponsiveContainer>
+          </div>
+        </div>
+
+        {/* Chart 4: Profit by Motorcycle */}
+        <div className="p-5 rounded-2xl bg-[#181818] border border-[#2D2D2D] shadow-xl space-y-3">
+          <h4 className="text-xs font-bold uppercase tracking-wider text-[#D4A017]">
+            4. Net Profit by Motorcycle
+          </h4>
+          <div className="h-64 w-full">
+            <ResponsiveContainer width="100%" height="100%">
+              <BarChart data={chart4ProfitByBike} layout="vertical">
+                <CartesianGrid strokeDasharray="3 3" stroke="#2A2A2A" />
+                <XAxis type="number" stroke="#888888" tick={{ fontSize: 10 }} />
+                <YAxis dataKey="name" type="category" stroke="#888888" tick={{ fontSize: 10 }} width={120} />
+                <Tooltip
+                  contentStyle={{ backgroundColor: '#1A1A1A', borderColor: '#333', color: '#fff', fontSize: '12px' }}
+                  formatter={(val: any) => [formatCurrency(Number(val), currency), 'Net Profit']}
+                />
+                <Bar dataKey="profit" fill="#D4A017" radius={[0, 4, 4, 0]} />
+              </BarChart>
+            </ResponsiveContainer>
+          </div>
+        </div>
+
+        {/* Chart 5: ROI by Motorcycle */}
+        <div className="p-5 rounded-2xl bg-[#181818] border border-[#2D2D2D] shadow-xl space-y-3">
+          <h4 className="text-xs font-bold uppercase tracking-wider text-[#D4A017]">
+            5. Vehicle ROI % Leaderboard
+          </h4>
+          <div className="h-64 w-full">
+            <ResponsiveContainer width="100%" height="100%">
+              <BarChart data={chart5ROIByBike}>
+                <CartesianGrid strokeDasharray="3 3" stroke="#2A2A2A" />
+                <XAxis dataKey="name" stroke="#888888" tick={{ fontSize: 9 }} interval={0} />
+                <YAxis stroke="#888888" tick={{ fontSize: 11 }} />
+                <Tooltip
+                  contentStyle={{ backgroundColor: '#1A1A1A', borderColor: '#333', color: '#fff', fontSize: '12px' }}
+                  formatter={(val: any) => [`${val}%`, 'ROI']}
+                />
+                <Bar dataKey="roi" fill="#3B82F6" radius={[4, 4, 0, 0]} />
+              </BarChart>
+            </ResponsiveContainer>
+          </div>
+        </div>
+
+        {/* Chart 6: Investment vs Book Value vs Estimated Market Value */}
+        <div className="p-5 rounded-2xl bg-[#181818] border border-[#2D2D2D] shadow-xl space-y-3">
+          <h4 className="text-xs font-bold uppercase tracking-wider text-[#D4A017]">
+            6. Capital Valuation Comparison
+          </h4>
+          <div className="h-64 w-full">
+            <ResponsiveContainer width="100%" height="100%">
+              <BarChart data={chart6CapValuation}>
+                <CartesianGrid strokeDasharray="3 3" stroke="#2A2A2A" />
+                <XAxis dataKey="name" stroke="#888888" tick={{ fontSize: 11 }} />
+                <YAxis stroke="#888888" tick={{ fontSize: 11 }} />
+                <Tooltip
+                  contentStyle={{ backgroundColor: '#1A1A1A', borderColor: '#333', color: '#fff', fontSize: '12px' }}
+                  formatter={(val: any) => [formatCurrency(Number(val), currency), 'Value']}
+                />
+                <Bar dataKey="value" radius={[6, 6, 0, 0]}>
+                  {chart6CapValuation.map((entry, index) => (
+                    <Cell key={`cell-cap-${index}`} fill={entry.fill} />
+                  ))}
+                </Bar>
+              </BarChart>
+            </ResponsiveContainer>
+          </div>
+        </div>
+
+        {/* Chart 7: Depreciation Curve Over Time */}
+        <div className="p-5 rounded-2xl bg-[#181818] border border-[#2D2D2D] shadow-xl space-y-3">
+          <h4 className="text-xs font-bold uppercase tracking-wider text-[#D4A017]">
+            7. Fleet Amortization & Book Value Curve
+          </h4>
+          <div className="h-64 w-full">
+            <ResponsiveContainer width="100%" height="100%">
+              <AreaChart data={chart7DeprTrend}>
+                <CartesianGrid strokeDasharray="3 3" stroke="#2A2A2A" />
+                <XAxis dataKey="month" stroke="#888888" tick={{ fontSize: 11 }} />
+                <YAxis stroke="#888888" tick={{ fontSize: 11 }} />
+                <Tooltip
+                  contentStyle={{ backgroundColor: '#1A1A1A', borderColor: '#333', color: '#fff', fontSize: '12px' }}
+                  formatter={(val: any) => [formatCurrency(Number(val), currency), 'Value']}
+                />
+                <Area type="monotone" dataKey="bookValue" stroke="#10B981" fill="#10B981" fillOpacity={0.15} name="Book Value" />
+                <Area type="monotone" dataKey="accDepr" stroke="#F59E0B" fill="#F59E0B" fillOpacity={0.15} name="Acc. Depreciation" />
+              </AreaChart>
+            </ResponsiveContainer>
+          </div>
+        </div>
+
+        {/* Chart 8 & 9: Monthly Revenue & Net Profit Trend */}
+        <div className="p-5 rounded-2xl bg-[#181818] border border-[#2D2D2D] shadow-xl space-y-3">
+          <h4 className="text-xs font-bold uppercase tracking-wider text-[#D4A017]">
+            8 & 9. Monthly Revenue & Profit Trajectory
+          </h4>
+          <div className="h-64 w-full">
+            <ResponsiveContainer width="100%" height="100%">
+              <AreaChart data={chart8MonthlyRevTrend}>
+                <CartesianGrid strokeDasharray="3 3" stroke="#2A2A2A" />
+                <XAxis dataKey="month" stroke="#888888" tick={{ fontSize: 11 }} />
+                <YAxis stroke="#888888" tick={{ fontSize: 11 }} />
+                <Tooltip
+                  contentStyle={{ backgroundColor: '#1A1A1A', borderColor: '#333', color: '#fff', fontSize: '12px' }}
+                  formatter={(val: any) => [formatCurrency(Number(val), currency), 'Amount']}
+                />
+                <Area type="monotone" dataKey="revenue" stroke="#10B981" fill="#10B981" fillOpacity={0.2} name="Revenue" />
+                <Area type="monotone" dataKey="profit" stroke="#D4A017" fill="#D4A017" fillOpacity={0.2} name="Net Profit" />
+              </AreaChart>
+            </ResponsiveContainer>
+          </div>
+        </div>
+      </div>
+
+      {/* ---------------------------------------------------- */}
+      {/* 8. TOP PERFORMERS & LEADERBOARDS                      */}
+      {/* ---------------------------------------------------- */}
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+        {/* Top Motorcycles */}
+        <div className="p-5 rounded-2xl bg-[#181818] border border-[#2D2D2D] shadow-xl space-y-3">
+          <h4 className="text-xs font-bold uppercase tracking-wider text-[#D4A017] flex items-center gap-1.5">
+            <Award className="w-4 h-4" />
+            Top 5 Motorcycles by Revenue
+          </h4>
+          <div className="space-y-2 text-xs">
+            {topBikesByRevenue.map(({ motorcycle, revenue, roi }, idx) => (
+              <div key={motorcycle.id} className="p-2.5 rounded-xl bg-[#202020] border border-[#2D2D2D] flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                  <span className="w-5 h-5 rounded-full bg-[#D4A017]/20 text-[#D4A017] font-bold text-[10px] flex items-center justify-center">
+                    #{idx + 1}
+                  </span>
+                  <div>
+                    <span className="font-bold text-white block">{motorcycle.brand} {motorcycle.model}</span>
+                    <span className="text-[10px] text-zinc-400">ROI: {roi}%</span>
+                  </div>
+                </div>
+                <span className="font-mono font-bold text-emerald-400">{formatCurrency(revenue, currency)}</span>
+              </div>
+            ))}
+          </div>
+        </div>
+
+        {/* Top Agencies */}
+        <div className="p-5 rounded-2xl bg-[#181818] border border-[#2D2D2D] shadow-xl space-y-3">
+          <h4 className="text-xs font-bold uppercase tracking-wider text-[#D4A017] flex items-center gap-1.5">
+            <Users className="w-4 h-4" />
+            Top 5 Agencies by Revenue
+          </h4>
+          <div className="space-y-2 text-xs">
+            {topAgencies.length === 0 ? (
+              <div className="text-zinc-500 py-6 text-center">No agency bookings recorded.</div>
+            ) : (
+              topAgencies.map((agency, idx) => (
+                <div key={agency.id} className="p-2.5 rounded-xl bg-[#202020] border border-[#2D2D2D] flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    <span className="w-5 h-5 rounded-full bg-blue-500/20 text-blue-400 font-bold text-[10px] flex items-center justify-center">
+                      #{idx + 1}
+                    </span>
+                    <div>
+                      <span className="font-bold text-white block">{agency.agencyName}</span>
+                      <span className="text-[10px] text-zinc-400">{agency.country}</span>
+                    </div>
+                  </div>
+                  <span className="font-mono font-bold text-blue-400">{formatCurrency(agency.totalRevenue || 0, currency)}</span>
+                </div>
+              ))
+            )}
+          </div>
+        </div>
+
+        {/* Top Clients */}
+        <div className="p-5 rounded-2xl bg-[#181818] border border-[#2D2D2D] shadow-xl space-y-3">
+          <h4 className="text-xs font-bold uppercase tracking-wider text-[#D4A017] flex items-center gap-1.5">
+            <Compass className="w-4 h-4" />
+            Top 5 Clients by Spend
+          </h4>
+          <div className="space-y-2 text-xs">
+            {topClients.map((client, idx) => (
+              <div key={client.id} className="p-2.5 rounded-xl bg-[#202020] border border-[#2D2D2D] flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                  <span className="w-5 h-5 rounded-full bg-purple-500/20 text-purple-400 font-bold text-[10px] flex items-center justify-center">
+                    #{idx + 1}
+                  </span>
+                  <div>
+                    <span className="font-bold text-white block">{client.fullName}</span>
+                    <span className="text-[10px] text-zinc-400">{client.country}</span>
+                  </div>
+                </div>
+                <span className="font-mono font-bold text-purple-300">{formatCurrency(client.lifetimeValue || client.totalSpent || 0, currency)}</span>
+              </div>
+            ))}
+          </div>
+        </div>
+      </div>
+
+      {/* ---------------------------------------------------- */}
+      {/* 9. MODALS & DRILL DOWN POPUPS                         */}
+      {/* ---------------------------------------------------- */}
+      <DrillDownModal
+        isOpen={drillDownState.isOpen}
+        onClose={() => setDrillDownState((prev) => ({ ...prev, isOpen: false }))}
+        title={drillDownState.title}
+        description={drillDownState.description}
+        totalValue={drillDownState.totalValue}
+        items={drillDownState.items}
+        currency={currency}
+      />
+
+      <InvestmentSimulatorModal
+        isOpen={isSimulatorOpen}
+        onClose={() => setIsSimulatorOpen(false)}
+        currency={currency}
+      />
+
+      <ManagementTargetsModal
+        isOpen={isTargetsOpen}
+        onClose={() => setIsTargetsOpen(false)}
+        targets={targets}
+        onSaveTargets={(newTargets) => setTargets(newTargets)}
+      />
+    </div>
+  );
+};
+
+export default ExecutiveDashboard;
