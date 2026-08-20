@@ -781,7 +781,7 @@ export const ExecutiveDashboard: React.FC<ExecutiveDashboardProps> = ({
               <div
                 key={a.id}
                 onClick={() => a.tab && onNavigate(a.tab)}
-                className={`p-3.5 rounded-xl border flex items-start gap-3 cursor-pointer transition-all hover:-translate-y-0.5 hover:brightness-110 ${severityClass}`}
+                className={`p-3.5 rounded-xl border flex items-start gap-3 cursor-pointer transition-all hover:-translate-y-0.5 hover:brightness-110 premium-spotlight-card ${severityClass}`}
               >
                 <div className="flex items-start gap-2 w-full min-w-0">
                   <AlertTriangle className="w-4 h-4 shrink-0 mt-0.5" />
@@ -816,7 +816,7 @@ export const ExecutiveDashboard: React.FC<ExecutiveDashboardProps> = ({
               'motorcycles'
             )
           }
-          className="p-5 bg-[#1C1C1C] rounded-xl border border-zinc-800 transition-all duration-300 ease-out cursor-pointer group shadow-xl relative overflow-hidden hover:scale-[1.02] hover:border-zinc-700/80 hover:shadow-2xl hover:shadow-black/50"
+          className="p-5 bg-[#1C1C1C] rounded-xl border border-zinc-800 transition-all duration-300 ease-out cursor-pointer group shadow-xl relative overflow-hidden hover:scale-[1.02] hover:border-zinc-700/80 hover:shadow-2xl hover:shadow-black/50 premium-spotlight-card"
         >
           <div className="flex items-center justify-between mb-2">
             <span className="text-zinc-400 text-xs font-bold uppercase tracking-wider">Total Fleet Investment</span>
@@ -843,7 +843,7 @@ export const ExecutiveDashboard: React.FC<ExecutiveDashboardProps> = ({
               'depreciation'
             )
           }
-          className="p-5 bg-[#1C1C1C] rounded-xl border border-zinc-800 transition-all duration-300 ease-out cursor-pointer group shadow-xl hover:scale-[1.02] hover:border-zinc-700/80 hover:shadow-2xl hover:shadow-black/50"
+          className="p-5 bg-[#1C1C1C] rounded-xl border border-zinc-800 transition-all duration-300 ease-out cursor-pointer group shadow-xl hover:scale-[1.02] hover:border-zinc-700/80 hover:shadow-2xl hover:shadow-black/50 premium-spotlight-card"
         >
           <div className="flex items-center justify-between mb-2">
             <span className="text-zinc-400 text-xs font-bold uppercase tracking-wider">Current Book Value</span>
@@ -870,7 +870,7 @@ export const ExecutiveDashboard: React.FC<ExecutiveDashboardProps> = ({
               'depreciation'
             )
           }
-          className="p-5 bg-[#1C1C1C] rounded-xl border border-zinc-800 transition-all duration-300 ease-out cursor-pointer group shadow-xl hover:scale-[1.02] hover:border-zinc-700/80 hover:shadow-2xl hover:shadow-black/50"
+          className="p-5 bg-[#1C1C1C] rounded-xl border border-zinc-800 transition-all duration-300 ease-out cursor-pointer group shadow-xl hover:scale-[1.02] hover:border-zinc-700/80 hover:shadow-2xl hover:shadow-black/50 premium-spotlight-card"
         >
           <div className="flex items-center justify-between mb-2">
             <span className="text-zinc-400 text-xs font-bold uppercase tracking-wider">Accumulated Depreciation</span>
@@ -897,7 +897,7 @@ export const ExecutiveDashboard: React.FC<ExecutiveDashboardProps> = ({
               'revenue'
             )
           }
-          className="p-5 bg-[#1C1C1C] rounded-xl border border-zinc-800 transition-all duration-300 ease-out cursor-pointer group shadow-xl hover:scale-[1.02] hover:border-zinc-700/80 hover:shadow-2xl hover:shadow-black/50 shadow-[#D4A017]/5"
+          className="p-5 bg-[#1C1C1C] rounded-xl border border-zinc-800 transition-all duration-300 ease-out cursor-pointer group shadow-xl hover:scale-[1.02] hover:border-zinc-700/80 hover:shadow-2xl hover:shadow-black/50 shadow-[#D4A017]/5 premium-spotlight-card"
         >
           <div className="flex items-center justify-between mb-2">
             <span className="text-zinc-400 text-xs font-bold uppercase tracking-wider">Net Profit</span>
@@ -924,7 +924,7 @@ export const ExecutiveDashboard: React.FC<ExecutiveDashboardProps> = ({
               'revenue'
             )
           }
-          className="p-5 bg-[#1C1C1C] rounded-xl border border-zinc-800 transition-all cursor-pointer group shadow-xl group-hover:scale-[1.02] shadow-[#D4A017]/5"
+          className="p-5 bg-[#1C1C1C] rounded-xl border border-zinc-800 transition-all duration-300 ease-out cursor-pointer group shadow-xl hover:scale-[1.02] hover:border-zinc-700/80 hover:shadow-2xl hover:shadow-black/50 shadow-[#D4A017]/5 premium-spotlight-card"
         >
           <div className="flex items-center justify-between mb-2">
             <span className="text-zinc-400 text-xs font-bold uppercase tracking-wider">Total Revenue</span>
@@ -951,7 +951,7 @@ export const ExecutiveDashboard: React.FC<ExecutiveDashboardProps> = ({
               'expense'
             )
           }
-          className="p-5 bg-[#1C1C1C] rounded-xl border border-zinc-800 transition-all cursor-pointer group shadow-xl group-hover:scale-[1.02]"
+          className="p-5 bg-[#1C1C1C] rounded-xl border border-zinc-800 transition-all duration-300 ease-out cursor-pointer group shadow-xl hover:scale-[1.02] hover:border-zinc-700/80 hover:shadow-2xl hover:shadow-black/50 premium-spotlight-card"
         >
           <div className="flex items-center justify-between mb-2">
             <span className="text-zinc-400 text-xs font-bold uppercase tracking-wider">Operating Expenses</span>
@@ -978,7 +978,7 @@ export const ExecutiveDashboard: React.FC<ExecutiveDashboardProps> = ({
               'reservations'
             )
           }
-          className="p-5 bg-[#1C1C1C] rounded-xl border border-zinc-800 transition-all cursor-pointer group shadow-xl group-hover:scale-[1.02]"
+          className="p-5 bg-[#1C1C1C] rounded-xl border border-zinc-800 transition-all duration-300 ease-out cursor-pointer group shadow-xl hover:scale-[1.02] hover:border-zinc-700/80 hover:shadow-2xl hover:shadow-black/50 premium-spotlight-card"
         >
           <div className="flex items-center justify-between mb-2">
             <span className="text-zinc-400 text-xs font-bold uppercase tracking-wider">Fleet Utilization</span>
@@ -1005,7 +1005,7 @@ export const ExecutiveDashboard: React.FC<ExecutiveDashboardProps> = ({
               'reservations'
             )
           }
-          className="p-5 bg-[#1C1C1C] rounded-xl border border-zinc-800 transition-all cursor-pointer group shadow-xl group-hover:scale-[1.02] shadow-[#D4A017]/5"
+          className="p-5 bg-[#1C1C1C] rounded-xl border border-zinc-800 transition-all duration-300 ease-out cursor-pointer group shadow-xl hover:scale-[1.02] hover:border-zinc-700/80 hover:shadow-2xl hover:shadow-black/50 shadow-[#D4A017]/5 premium-spotlight-card"
         >
           <div className="flex items-center justify-between mb-2">
             <span className="text-zinc-400 text-xs font-bold uppercase tracking-wider">Avg Rev / Rental Day</span>
@@ -1026,7 +1026,7 @@ export const ExecutiveDashboard: React.FC<ExecutiveDashboardProps> = ({
       {/* ---------------------------------------------------- */}
       {/* 5. MANAGEMENT TARGETS VS ACTUAL PROGRESS             */}
       {/* ---------------------------------------------------- */}
-      <div className={`p-6 bg-[#1C1C1C] rounded-xl border border-zinc-800 shadow-xl space-y-4 ${isLoaded ? 'animate-fade-in-up animation-delay-300' : ''}`}>
+      <div className={`p-6 bg-[#1C1C1C] rounded-xl border border-zinc-800 shadow-xl space-y-4 premium-spotlight-card ${isLoaded ? 'animate-fade-in-up animation-delay-300' : ''}`}>
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-2">
             <Target className="w-5 h-5 text-[#D4A017]" />
