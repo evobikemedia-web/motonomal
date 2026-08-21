@@ -29,7 +29,7 @@ import {
 } from './types';
 
 const MainAppContent: React.FC = () => {
-  const { currentRole, user, hasPermission } = useAuth();
+  const {  user, hasPermission } = useAuth();
   const [activeTab, setActiveTab] = useState<string>('dashboard');
   const [currency, setCurrency] = useState<'MAD' | 'EUR' | 'USD'>('MAD');
   const [dateRange, setDateRange] = useState<DateFilterRange>('this_month');
@@ -136,6 +136,7 @@ const MainAppContent: React.FC = () => {
           {/* Executive Dashboard */}
           {activeTab === 'dashboard' && hasPermission('dashboard') && (
             <ExecutiveDashboard
+              searchQuery={searchQuery}
               currency={currency}
               dateRange={dateRange}
               setDateRange={setDateRange}

@@ -39,6 +39,7 @@ export const Header: React.FC<HeaderProps> = ({
   const { t, language, setLanguage } = useLanguage();
   const [showQuickAction, setShowQuickAction] = useState(false);
   const [showDatePicker, setShowDatePicker] = useState(false);
+  const [showMobileSearch, setShowMobileSearch] = useState(false);
   const [isOffline, setIsOffline] = useState(!navigator.onLine);
   
   const dropdownRef = useRef<HTMLDivElement>(null);
@@ -70,11 +71,7 @@ export const Header: React.FC<HeaderProps> = ({
   return (
     <div className="sticky top-0 z-30 flex flex-col w-full">
       
-      {/* ========================================================= */}
-      {/* MODALES GLOBALES (Placées hors du header pour éviter les bugs) */}
-      {/* ========================================================= */}
-
-      {/* 1. Modale DatePicker Mobile (centrée et libre du header) */}
+      {/* 1. Modale DatePicker Mobile */}
       {showDatePicker && (
         <div className="fixed inset-0 w-screen h-[100dvh] z-[99999] flex sm:hidden items-center justify-center bg-black/85 backdrop-blur-md p-4">
           <div ref={mobileModalRef} className="relative bg-[#1A1A1A] border border-[#333333] rounded-2xl shadow-2xl p-4 w-full max-w-sm max-h-[90vh] overflow-y-auto">
@@ -132,8 +129,6 @@ export const Header: React.FC<HeaderProps> = ({
           </div>
         </div>
       )}
-      {/* ========================================================= */}
-
 
       {isOffline && (
         <div className="bg-amber-600/90 text-amber-95 px-4 py-1.5 text-xs font-bold text-center flex items-center justify-center gap-2 border-b border-amber-500/50 backdrop-blur-md animate-pulse">
@@ -142,32 +137,51 @@ export const Header: React.FC<HeaderProps> = ({
         </div>
       )}
 
-      <header className="flex items-center justify-between h-16 md:h-20 px-2 md:px-6 bg-[#1C1C1C]/95 border-b border-[#2D2D2D] backdrop-blur-md">
+      <header className="flex flex-col md:flex-row items-center justify-between h-auto md:h-20 px-2 md:px-6 py-2 md:py-0 bg-[#1C1C1C]/95 border-b border-[#2D2D2D] backdrop-blur-md gap-2 md:gap-0">
         
-        {/* Logo */}
-        <div className="flex items-center gap-1.5 md:gap-2 shrink-0">
-          <MountainLogoSVG className="w-6 h-5 md:w-7 md:h-6 text-[#D4A017]" />
-          <span className="hidden sm:inline font-black text-xs md:text-sm tracking-wider text-white">
-            MOTO<span className="text-[#D4A017]">NOMAD</span>
-          </span>
+        <div className="flex items-center justify-between w-full md:w-auto">
+          <div className="flex items-center gap-1.5 md:gap-2 shrink-0">
+            <MountainLogoSVG className="w-6 h-5 md:w-7 md:h-6 text-[#D4A017]" />
+            <span className="hidden sm:inline font-black text-xs md:text-sm tracking-wider text-white">
+              MOTO<span className="text-[#D4A017]">NOMAD</span>
+            </span>
+          </div>
+
+          {/* Bouton loupe mobile pour activer la recherche si besoin */}
+          <button 
+            type="button" 
+            onClick={() => setShowMobileSearch(!showMobileSearch)} 
+            className="md:hidden p-2 rounded-xl bg-[#262626] text-zinc-300 hover:text-white"
+          >
+            <Search className="w-4 h-4 text-[#D4A017]" />
+          </button>
         </div>
 
-        {/* Search Bar Desktop */}
-        <div className="hidden md:flex relative items-center w-full max-w-md mx-4">
+        {/* Barre de recherche (Toujours visible sur Desktop, et basculable/visible sur Mobile si activée) */}
+        <div className={`${showMobileSearch ? 'flex' : 'hidden'} md:flex relative items-center w-full md:max-w-md mx-2`}>
           <Search className="absolute left-3.5 w-4 h-4 text-zinc-400 pointer-events-none" />
           <input
             type="text"
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
-            placeholder={t('common.search_placeholder')}
-            className="w-full pl-10 pr-4 py-2.5 rounded-xl bg-[#262626] border border-[#333333] text-sm text-[#F4F4F2] placeholder-zinc-500 focus:outline-none focus:border-[#D4A017] transition-all"
+            placeholder={t('common.search_placeholder') || "Global Search..."}
+            className="w-full pl-10 pr-9 py-2 rounded-xl bg-[#262626] border border-[#333333] text-xs md:text-sm text-[#F4F4F2] placeholder-zinc-500 focus:outline-none focus:border-[#D4A017] transition-all"
           />
+          {searchQuery && (
+            <button 
+              type="button" 
+              onClick={() => setSearchQuery('')}
+              className="absolute right-3 text-zinc-400 hover:text-white cursor-pointer"
+            >
+              <X className="w-4 h-4" />
+            </button>
+          )}
         </div>
 
-        {/* Right Section : Date + Settings + Action */}
-        <div className="flex items-center gap-1 md:gap-3 ml-auto shrink-0">
+        {/* Right Section */}
+        <div className="flex items-center justify-between md:justify-end w-full md:w-auto gap-1 md:gap-3">
           
-          {/* Date Picker Button */}
+          {/* Date Picker */}
           <div className="relative" ref={dropdownRef}>
             <button 
               type="button"
@@ -181,7 +195,6 @@ export const Header: React.FC<HeaderProps> = ({
               <ChevronDown className="w-3 h-3 text-zinc-400 shrink-0 hidden sm:block" />
             </button>
 
-            {/* Version Desktop : Popover déroulant */}
             {showDatePicker && (
               <div className="hidden sm:block absolute right-0 mt-2 z-50 bg-[#1A1A1A] border border-[#333333] rounded-2xl shadow-2xl p-4">
                 <DateRangePicker 
@@ -198,7 +211,7 @@ export const Header: React.FC<HeaderProps> = ({
             )}
           </div>
 
-          {/* Settings : Currency & Language (Rendu visible sur mobile avec ajustement des tailles) */}
+          {/* Devise & Langue */}
           <div className="flex items-center bg-[#181818] border border-[#333333] rounded-lg p-0.5 gap-0.5 md:gap-1 shadow-sm shrink-0">
             <div className="flex items-center bg-[#262626] rounded-md p-0.5">
               {(['MAD', 'EUR', 'USD'] as const).map((c) => (

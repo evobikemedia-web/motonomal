@@ -33,6 +33,7 @@ import { InvestmentSimulatorModal } from './InvestmentSimulatorModal';
 import { ManagementTargetsModal, DEFAULT_MANAGEMENT_TARGETS, ManagementTargets } from './ManagementTargetsModal';
 
 interface ExecutiveDashboardProps {
+  searchQuery: string; // <-- Ajouté ici
   currency: 'MAD' | 'EUR' | 'USD';
   dateRange: DateFilterRange;
   setDateRange?: (range: DateFilterRange) => void;
@@ -56,6 +57,7 @@ interface ExecutiveDashboardProps {
 }
 
 export const ExecutiveDashboard: React.FC<ExecutiveDashboardProps> = ({
+  searchQuery, // <-- Récupéré ici
   currency,
   dateRange,
   setDateRange,
@@ -252,7 +254,7 @@ export const ExecutiveDashboard: React.FC<ExecutiveDashboardProps> = ({
   }, [motorcycles]);
 
   const bikeProfitabilityList = useMemo(() => {
-    return (motorcycles || []).map((m) => {
+    const list = (motorcycles || []).map((m) => {
       const prof = calculateMotorcycleProfitability(
         m,
         revenues,
@@ -267,7 +269,16 @@ export const ExecutiveDashboard: React.FC<ExecutiveDashboardProps> = ({
         ...prof,
       };
     });
-  }, [motorcycles, revenues, expenses, reservations, maintenance, targets]);
+
+    // --- APPLICATION DU FILTRE DE RECHERCHE GLOBALE ---
+    if (!searchQuery) return list;
+    const query = searchQuery.toLowerCase();
+    return list.filter(({ motorcycle }) => 
+      motorcycle.brand?.toLowerCase().includes(query) ||
+      motorcycle.model?.toLowerCase().includes(query) ||
+      motorcycle.registrationNumber?.toLowerCase().includes(query)
+    );
+  }, [motorcycles, revenues, expenses, reservations, maintenance, targets, searchQuery]);
 
   const topBikesByRevenue = useMemo(
     () => [...bikeProfitabilityList].sort((a, b) => b.revenue - a.revenue).slice(0, 5),
@@ -335,7 +346,6 @@ export const ExecutiveDashboard: React.FC<ExecutiveDashboardProps> = ({
   const summaryJSX = useMemo(() => {
     const topBike = topBikesByRevenue[0]?.motorcycle;
     const margin = totalRevenue > 0 ? Math.round((netProfit / totalRevenue) * 100) : 0;
-    const unpaidCount = filteredReservations.filter((r) => r.paymentStatus === 'Pending').length;
     const revFormatted = formatCurrency(totalRevenue, currency);
     const profitFormatted = formatCurrency(netProfit, currency);
     const utilText = `${utilizationRes.utilizationRate}%`;
