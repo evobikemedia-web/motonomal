@@ -33,7 +33,7 @@ import { InvestmentSimulatorModal } from './InvestmentSimulatorModal';
 import { ManagementTargetsModal, DEFAULT_MANAGEMENT_TARGETS, ManagementTargets } from './ManagementTargetsModal';
 
 interface ExecutiveDashboardProps {
-  searchQuery: string; // <-- Ajouté ici
+  searchQuery: string;
   currency: 'MAD' | 'EUR' | 'USD';
   dateRange: DateFilterRange;
   setDateRange?: (range: DateFilterRange) => void;
@@ -57,7 +57,7 @@ interface ExecutiveDashboardProps {
 }
 
 export const ExecutiveDashboard: React.FC<ExecutiveDashboardProps> = ({
-  searchQuery, // <-- Récupéré ici
+  searchQuery,
   currency,
   dateRange,
   setDateRange,
@@ -270,7 +270,6 @@ export const ExecutiveDashboard: React.FC<ExecutiveDashboardProps> = ({
       };
     });
 
-    // --- APPLICATION DU FILTRE DE RECHERCHE GLOBALE ---
     if (!searchQuery) return list;
     const query = searchQuery.toLowerCase();
     return list.filter(({ motorcycle }) => 
@@ -332,16 +331,17 @@ export const ExecutiveDashboard: React.FC<ExecutiveDashboardProps> = ({
     return list;
   }, [bikeProfitabilityList, fleetStatusCounts, filteredReservations, targets]);
 
+  // Période traduite dynamiquement selon la langue (FR / EN)
   const periodLabelText = useMemo(() => {
-    if (selectedRange === 'today') return 'Today';
-    if (selectedRange === 'this_week') return 'This Week';
-    if (selectedRange === 'this_month') return 'This Month';
-    if (selectedRange === 'last_month') return 'Last Month';
-    if (selectedRange === 'this_quarter') return 'This Quarter';
-    if (selectedRange === 'this_year') return 'This Year';
-    if (selectedRange === 'custom') return `${customStartDate} to ${customEndDate}`;
-    return 'All Time';
-  }, [selectedRange, customStartDate, customEndDate]);
+    if (selectedRange === 'today') return language === 'fr' ? "Aujourd'hui" : 'Today';
+    if (selectedRange === 'this_week') return language === 'fr' ? 'Cette semaine' : 'This Week';
+    if (selectedRange === 'this_month') return language === 'fr' ? 'Ce mois-ci' : 'This Month';
+    if (selectedRange === 'last_month') return language === 'fr' ? 'Le mois dernier' : 'Last Month';
+    if (selectedRange === 'this_quarter') return language === 'fr' ? 'Ce trimestre' : 'This Quarter';
+    if (selectedRange === 'this_year') return language === 'fr' ? 'Cette année' : 'This Year';
+    if (selectedRange === 'custom') return `${customStartDate} → ${customEndDate}`;
+    return language === 'fr' ? 'Tous les temps' : 'All Time';
+  }, [selectedRange, customStartDate, customEndDate, language]);
 
   const summaryJSX = useMemo(() => {
     const topBike = topBikesByRevenue[0]?.motorcycle;
@@ -588,7 +588,7 @@ export const ExecutiveDashboard: React.FC<ExecutiveDashboardProps> = ({
         <div className="flex flex-wrap items-center gap-2.5 w-full lg:w-auto">
           <div className="flex items-center bg-[#111111] border border-[#333333] rounded-xl px-3 py-1.5 text-xs text-zinc-300">
             <Calendar className="w-3.5 h-3.5 text-[#D4A017] mr-2" />
-            <span className="font-semibold text-white">{selectedRange === 'custom' ? `${customStartDate} → ${customEndDate}` : selectedRange.replace('_', ' ')}</span>
+            <span className="font-semibold text-white">{periodLabelText}</span>
           </div>
 
           <div className="flex items-center bg-[#111111] border border-[#333333] rounded-xl px-3 py-1.5 text-xs">
