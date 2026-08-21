@@ -292,16 +292,24 @@ export const ExecutiveDashboard: React.FC<ExecutiveDashboardProps> = ({
     return (clients || []).slice().sort((a, b) => (b.lifetimeValue || b.totalSpent || 0) - (a.lifetimeValue || a.totalSpent || 0)).slice(0, 5);
   }, [clients]);
 
-  const alerts = useMemo(() => {
+ const alerts = useMemo(() => {
     const list: { id: string; type: 'warning' | 'danger' | 'info'; title: string; message: string; tab?: string }[] = [];
 
     bikeProfitabilityList.forEach((bp) => {
       if (bp.decision === 'SELL') {
+        const titleText = language === 'fr' 
+          ? `ROI Véhicule Faible : ${bp.motorcycle.brand} ${bp.motorcycle.model}`
+          : `Low Vehicle ROI: ${bp.motorcycle.brand} ${bp.motorcycle.model}`;
+          
+        const messageText = language === 'fr'
+          ? `Le ROI est de ${bp.roi}% (en dessous du seuil de ${targets.sellRoiThreshold}%). Recommandation : VENDRE ou auditer la tarification.`
+          : `ROI is ${bp.roi}% (below threshold ${targets.sellRoiThreshold}%). Recommendation: SELL or audit pricing.`;
+
         list.push({
           id: `roi_low_${bp.motorcycle.id}`,
           type: 'danger',
-          title: `Low Vehicle ROI: ${bp.motorcycle.brand} ${bp.motorcycle.model}`,
-          message: `ROI is ${bp.roi}% (below threshold ${targets.sellRoiThreshold}%). Recommendation: SELL or audit pricing.`,
+          title: titleText,
+          message: messageText,
           tab: 'fleet',
         });
       }
@@ -311,8 +319,12 @@ export const ExecutiveDashboard: React.FC<ExecutiveDashboardProps> = ({
       list.push({
         id: 'maint_active',
         type: 'warning',
-        title: `${fleetStatusCounts.Maintenance} Motorcycle(s) in Maintenance`,
-        message: 'Vehicles currently unavailable for rental. Ensure workshop timeline is tracked.',
+        title: language === 'fr' 
+          ? `${fleetStatusCounts.Maintenance} Moto(s) en Maintenance`
+          : `${fleetStatusCounts.Maintenance} Motorcycle(s) in Maintenance`,
+        message: language === 'fr'
+          ? 'Véhicules actuellement indisponibles pour la location. Assurez-vous de suivre le calendrier de l\'atelier.'
+          : 'Vehicles currently unavailable for rental. Ensure workshop timeline is tracked.',
         tab: 'maintenance',
       });
     }
@@ -322,15 +334,18 @@ export const ExecutiveDashboard: React.FC<ExecutiveDashboardProps> = ({
       list.push({
         id: 'unpaid_res',
         type: 'warning',
-        title: `${unpaid.length} Reservation(s) Pending Payment`,
-        message: 'Outstanding customer balances pending settlement.',
+        title: language === 'fr'
+          ? `${unpaid.length} Réservation(s) en attente de paiement`
+          : `${unpaid.length} Reservation(s) Pending Payment`,
+        message: language === 'fr'
+          ? 'Soldes clients en attente de règlement.'
+          : 'Outstanding customer balances pending settlement.',
         tab: 'reservations',
       });
     }
 
     return list;
-  }, [bikeProfitabilityList, fleetStatusCounts, filteredReservations, targets]);
-
+  }, [bikeProfitabilityList, fleetStatusCounts, filteredReservations, targets, language]);
   // Période traduite dynamiquement selon la langue (FR / EN)
   const periodLabelText = useMemo(() => {
     if (selectedRange === 'today') return language === 'fr' ? "Aujourd'hui" : 'Today';
@@ -409,19 +424,19 @@ export const ExecutiveDashboard: React.FC<ExecutiveDashboardProps> = ({
 
   // CHARTS DATA
   const chart1FinancialPerf = [
-    { name: 'Revenue', amount: totalRevenue, fill: '#10B981' },
-    { name: 'Operating Exp', amount: totalOperatingExpenses, fill: '#F43F5E' },
-    { name: 'Depreciation', amount: totalDepreciationForPeriod, fill: '#F59E0B' },
-    { name: 'Net Profit', amount: netProfit, fill: '#D4A017' },
+    { name: language === 'fr' ? 'Chiffre d’Affaires' : 'Revenue', amount: totalRevenue, fill: '#10B981' },
+    { name: language === 'fr' ? 'Dépenses Expl.' : 'Operating Exp', amount: totalOperatingExpenses, fill: '#F43F5E' },
+    { name: language === 'fr' ? 'Amortissement' : 'Depreciation', amount: totalDepreciationForPeriod, fill: '#F59E0B' },
+    { name: language === 'fr' ? 'Bénéfice Net' : 'Net Profit', amount: netProfit, fill: '#D4A017' },
   ];
 
   const chart2FleetStatus = [
-    { name: 'Available', value: fleetStatusCounts.Available, color: '#10B981' },
-    { name: 'Reserved', value: fleetStatusCounts.Reserved, color: '#F59E0B' },
-    { name: 'Rented', value: fleetStatusCounts.Rented, color: '#0284C7' },
-    { name: 'Maintenance', value: fleetStatusCounts.Maintenance, color: '#F97316' },
-    { name: 'Damaged', value: fleetStatusCounts.Damaged, color: '#EF4444' },
-    { name: 'Out of Service', value: fleetStatusCounts['Out of service'], color: '#6B7280' },
+    { name: language === 'fr' ? 'Disponible' : 'Available', value: fleetStatusCounts.Available, color: '#10B981' },
+    { name: language === 'fr' ? 'Réservée' : 'Reserved', value: fleetStatusCounts.Reserved, color: '#F59E0B' },
+    { name: language === 'fr' ? 'Louée' : 'Rented', value: fleetStatusCounts.Rented, color: '#0284C7' },
+    { name: language === 'fr' ? 'En maintenance' : 'Maintenance', value: fleetStatusCounts.Maintenance, color: '#F97316' },
+    { name: language === 'fr' ? 'Endommagée' : 'Damaged', value: fleetStatusCounts.Damaged, color: '#EF4444' },
+    { name: language === 'fr' ? 'Hors service' : 'Out of Service', value: fleetStatusCounts['Out of service'], color: '#6B7280' },
   ].filter((d) => d.value > 0);
 
   const chart3RevenueByBike = bikeProfitabilityList
@@ -574,14 +589,16 @@ export const ExecutiveDashboard: React.FC<ExecutiveDashboardProps> = ({
         <div>
           <div className="flex items-center gap-2">
             <h2 className="text-2xl font-black text-white tracking-wide uppercase">
-              Executive Management Control Center
+              {language === 'fr' ? "Centre de Contrôle de Gestion Exécutif" : "Executive Management Control Center"}
             </h2>
             <span className="text-xs px-2.5 py-0.5 rounded-full bg-[#D4A017]/10 text-[#D4A017] font-bold border border-[#D4A017]/30">
               Live DB Sync
             </span>
           </div>
           <p className="text-xs text-zinc-400 mt-1">
-            Real-time financial performance, fleet valuation, depreciation engine & ROI decision metrics.
+            {language === 'fr' 
+              ? "Performance financière en temps réel, valorisation de la flotte, moteur d'amortissement et métriques de décision ROI."
+              : "Real-time financial performance, fleet valuation, depreciation engine & ROI decision metrics."}
           </p>
         </div>
 
@@ -598,7 +615,9 @@ export const ExecutiveDashboard: React.FC<ExecutiveDashboardProps> = ({
               onChange={(e) => setSelectedMotorcycleFilter(e.target.value)}
               className="bg-transparent text-white font-semibold outline-none cursor-pointer"
             >
-              <option value="all" className="bg-[#181818]">All Motorcycles</option>
+              <option value="all" className="bg-[#181818]">
+                {language === 'fr' ? 'Toutes les motos' : 'All Motorcycles'}
+              </option>
               {motorcycles.map((m) => (
                 <option key={m.id} value={m.id} className="bg-[#181818]">
                   {m.brand} {m.model} ({m.registrationNumber})
@@ -612,7 +631,7 @@ export const ExecutiveDashboard: React.FC<ExecutiveDashboardProps> = ({
             className="px-3 py-2 rounded-xl bg-[#222222] border border-[#333333] hover:border-[#D4A017] text-white font-bold text-xs transition-colors flex items-center gap-1.5 cursor-pointer"
           >
             <Target className="w-3.5 h-3.5 text-[#D4A017]" />
-            Targets
+            {language === 'fr' ? 'Objectifs' : 'Targets'}
           </button>
 
           <button
@@ -620,7 +639,7 @@ export const ExecutiveDashboard: React.FC<ExecutiveDashboardProps> = ({
             className="px-3.5 py-2 rounded-xl bg-[#D4A017] text-[#111111] hover:bg-[#e0ad24] font-bold text-xs transition-colors flex items-center gap-1.5 shadow-md shadow-[#D4A017]/20 cursor-pointer"
           >
             <Calculator className="w-3.5 h-3.5" />
-            Simulator
+            {language === 'fr' ? 'Simulateur' : 'Simulator'}
           </button>
         </div>
       </div>
@@ -633,8 +652,8 @@ export const ExecutiveDashboard: React.FC<ExecutiveDashboardProps> = ({
             <Activity className="w-5 h-5" />
           </div>
           <div className="min-w-0">
-            <h4 className="text-[11px] font-bold uppercase tracking-[0.18em] text-[#D4A017]">
-              Dynamic Management Executive Summary
+              <h4 className="text-[11px] font-bold uppercase tracking-[0.18em] text-[#D4A017]">
+              {language === 'fr' ? "Résumé Exécutif de Gestion Dynamique" : "Dynamic Management Executive Summary"}
             </h4>
             <p className="text-xs text-zinc-200 mt-2 leading-relaxed font-sans">
               {summaryJSX}
@@ -647,7 +666,11 @@ export const ExecutiveDashboard: React.FC<ExecutiveDashboardProps> = ({
       {alerts.length > 0 && (
         <div className={`grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3 ${isLoaded ? 'animate-fade-in-up animation-delay-200' : ''}`}>
           {alerts.slice(0, 3).map((a) => {
-            const severity = a.type === 'danger' ? 'Critical' : a.type === 'warning' ? 'Review' : 'Info';
+            const severity = a.type === 'danger' 
+              ? (language === 'fr' ? 'Critique' : 'Critical') 
+              : a.type === 'warning' 
+              ? (language === 'fr' ? 'À vérifier' : 'Review') 
+              : (language === 'fr' ? 'Info' : 'Info');
             const severityClass = a.type === 'danger'
               ? 'bg-rose-950/30 border-rose-900/50 text-rose-400'
               : a.type === 'warning'
@@ -692,7 +715,9 @@ export const ExecutiveDashboard: React.FC<ExecutiveDashboardProps> = ({
           className="p-5 bg-[#1C1C1C] rounded-xl border border-zinc-800 transition-all duration-300 ease-out cursor-pointer group shadow-xl hover:scale-[1.02] hover:border-zinc-700/80"
         >
           <div className="flex items-center justify-between mb-2">
-            <span className="text-zinc-400 text-xs font-bold uppercase tracking-wider">Total Fleet Investment</span>
+            <span className="text-zinc-400 text-xs font-bold uppercase tracking-wider">
+              {language === 'fr' ? 'Investissement Total Flotte' : 'Total Fleet Investment'}
+            </span>
             <div className="p-2 rounded-lg bg-zinc-800/50 text-zinc-500 group-hover:text-zinc-300 transition-colors">
               <DollarSign className="w-4 h-4" />
             </div>
@@ -701,8 +726,10 @@ export const ExecutiveDashboard: React.FC<ExecutiveDashboardProps> = ({
             {formatCurrency(fleetKPIs.totalInvestment, currency)}
           </div>
           <div className="mt-2 text-[11px] text-zinc-500 flex items-center justify-between">
-            <span>Active Assets: {fleetStatusCounts.Total}</span>
-            <span className="font-semibold group-hover:text-zinc-400 group-hover:underline">Audit Breakdown &rarr;</span>
+            <span>{language === 'fr' ? `Actifs Actifs : ${fleetStatusCounts.Total}` : `Active Assets: ${fleetStatusCounts.Total}`}</span>
+            <span className="font-semibold group-hover:text-zinc-400 group-hover:underline">
+              {language === 'fr' ? 'Détail Audit →' : 'Audit Breakdown →'}
+            </span>
           </div>
         </div>
 
@@ -711,7 +738,9 @@ export const ExecutiveDashboard: React.FC<ExecutiveDashboardProps> = ({
           className="p-5 bg-[#1C1C1C] rounded-xl border border-zinc-800 transition-all duration-300 ease-out cursor-pointer group shadow-xl hover:scale-[1.02] hover:border-zinc-700/80"
         >
           <div className="flex items-center justify-between mb-2">
-            <span className="text-zinc-400 text-xs font-bold uppercase tracking-wider">Current Book Value</span>
+            <span className="text-zinc-400 text-xs font-bold uppercase tracking-wider">
+              {language === 'fr' ? 'Valeur Comptable Actuelle' : 'Current Book Value'}
+            </span>
             <div className="p-2 rounded-lg bg-zinc-800/50 text-zinc-500 group-hover:text-zinc-300 transition-colors">
               <ShieldCheck className="w-4 h-4" />
             </div>
@@ -720,8 +749,10 @@ export const ExecutiveDashboard: React.FC<ExecutiveDashboardProps> = ({
             {formatCurrency(fleetKPIs.currentBookValue, currency)}
           </div>
           <div className="mt-2 text-[11px] text-zinc-500 flex items-center justify-between">
-            <span>Est Market: {formatCurrency(fleetKPIs.estimatedMarketValue, currency)}</span>
-            <span className="font-semibold group-hover:text-zinc-400 group-hover:underline">Audit Breakdown &rarr;</span>
+            <span>{language === 'fr' ? `Marché Est. : ${formatCurrency(fleetKPIs.estimatedMarketValue, currency)}` : `Est Market: ${formatCurrency(fleetKPIs.estimatedMarketValue, currency)}`}</span>
+            <span className="font-semibold group-hover:text-zinc-400 group-hover:underline">
+              {language === 'fr' ? 'Détail Audit →' : 'Audit Breakdown →'}
+            </span>
           </div>
         </div>
 
@@ -730,7 +761,9 @@ export const ExecutiveDashboard: React.FC<ExecutiveDashboardProps> = ({
           className="p-5 bg-[#1C1C1C] rounded-xl border border-zinc-800 transition-all duration-300 ease-out cursor-pointer group shadow-xl hover:scale-[1.02] hover:border-zinc-700/80"
         >
           <div className="flex items-center justify-between mb-2">
-            <span className="text-zinc-400 text-xs font-bold uppercase tracking-wider">Accumulated Depreciation</span>
+            <span className="text-zinc-400 text-xs font-bold uppercase tracking-wider">
+              {language === 'fr' ? 'Amortissement Cumulé' : 'Accumulated Depreciation'}
+            </span>
             <div className="p-2 rounded-lg bg-zinc-800/50 text-zinc-500 group-hover:text-zinc-300 transition-colors">
               <Layers className="w-4 h-4" />
             </div>
@@ -739,8 +772,10 @@ export const ExecutiveDashboard: React.FC<ExecutiveDashboardProps> = ({
             {formatCurrency(fleetKPIs.accumulatedDepreciation, currency)}
           </div>
           <div className="mt-2 text-[11px] text-zinc-500 flex items-center justify-between">
-            <span>Monthly Rate: -{formatCurrency(fleetKPIs.monthlyFleetDepreciation, currency)}</span>
-            <span className="font-semibold group-hover:text-zinc-400 group-hover:underline">Audit Breakdown &rarr;</span>
+            <span>{language === 'fr' ? `Taux Mensuel : -${formatCurrency(fleetKPIs.monthlyFleetDepreciation, currency)}` : `Monthly Rate: -${formatCurrency(fleetKPIs.monthlyFleetDepreciation, currency)}`}</span>
+            <span className="font-semibold group-hover:text-zinc-400 group-hover:underline">
+              {language === 'fr' ? 'Détail Audit →' : 'Audit Breakdown →'}
+            </span>
           </div>
         </div>
 
@@ -749,7 +784,9 @@ export const ExecutiveDashboard: React.FC<ExecutiveDashboardProps> = ({
           className="p-5 bg-[#1C1C1C] rounded-xl border border-zinc-800 transition-all duration-300 ease-out cursor-pointer group shadow-xl hover:scale-[1.02] hover:border-zinc-700/80 shadow-[#D4A017]/5"
         >
           <div className="flex items-center justify-between mb-2">
-            <span className="text-zinc-400 text-xs font-bold uppercase tracking-wider">Net Profit</span>
+            <span className="text-zinc-400 text-xs font-bold uppercase tracking-wider">
+              {language === 'fr' ? 'Bénéfice Net' : 'Net Profit'}
+            </span>
             <div className="p-2 rounded-lg bg-zinc-800/50 text-zinc-500 group-hover:text-zinc-300 transition-colors">
               <TrendingUp className="w-4 h-4" />
             </div>
@@ -758,8 +795,10 @@ export const ExecutiveDashboard: React.FC<ExecutiveDashboardProps> = ({
             {formatCurrency(netProfit, currency)}
           </div>
           <div className="mt-2 text-[11px] text-zinc-500 flex items-center justify-between">
-            <span>Profit Margin: {profitMargin.toFixed(1)}%</span>
-            <span className="font-semibold group-hover:text-zinc-400 group-hover:underline">Audit Breakdown &rarr;</span>
+            <span>{language === 'fr' ? `Marge Nette : ${profitMargin.toFixed(1)}%` : `Profit Margin: ${profitMargin.toFixed(1)}%`}</span>
+            <span className="font-semibold group-hover:text-zinc-400 group-hover:underline">
+              {language === 'fr' ? 'Détail Audit →' : 'Audit Breakdown →'}
+            </span>
           </div>
         </div>
 
@@ -768,7 +807,9 @@ export const ExecutiveDashboard: React.FC<ExecutiveDashboardProps> = ({
           className="p-5 bg-[#1C1C1C] rounded-xl border border-zinc-800 transition-all duration-300 ease-out cursor-pointer group shadow-xl hover:scale-[1.02] hover:border-zinc-700/80 shadow-[#D4A017]/5"
         >
           <div className="flex items-center justify-between mb-2">
-            <span className="text-zinc-400 text-xs font-bold uppercase tracking-wider">Total Revenue</span>
+            <span className="text-zinc-400 text-xs font-bold uppercase tracking-wider">
+              {language === 'fr' ? "Chiffre d'Affaires Total" : 'Total Revenue'}
+            </span>
             <div className="p-2 rounded-lg bg-zinc-800/50 text-zinc-500 group-hover:text-zinc-300 transition-colors">
               <ArrowUpRight className="w-4 h-4" />
             </div>
@@ -777,8 +818,10 @@ export const ExecutiveDashboard: React.FC<ExecutiveDashboardProps> = ({
             {formatCurrency(totalRevenue, currency)}
           </div>
           <div className="mt-2 text-[11px] text-zinc-500 flex items-center justify-between">
-            <span>Rental: {formatCurrency(revBreakdown.Rental, currency)}</span>
-            <span className="font-semibold group-hover:text-zinc-400 group-hover:underline">Drill-Down &rarr;</span>
+            <span>{language === 'fr' ? `Location : ${formatCurrency(revBreakdown.Rental, currency)}` : `Rental: ${formatCurrency(revBreakdown.Rental, currency)}`}</span>
+            <span className="font-semibold group-hover:text-zinc-400 group-hover:underline">
+              {language === 'fr' ? 'Détail →' : 'Drill-Down →'}
+            </span>
           </div>
         </div>
 
@@ -787,7 +830,9 @@ export const ExecutiveDashboard: React.FC<ExecutiveDashboardProps> = ({
           className="p-5 bg-[#1C1C1C] rounded-xl border border-zinc-800 transition-all duration-300 ease-out cursor-pointer group shadow-xl hover:scale-[1.02] hover:border-zinc-700/80"
         >
           <div className="flex items-center justify-between mb-2">
-            <span className="text-zinc-400 text-xs font-bold uppercase tracking-wider">Operating Expenses</span>
+            <span className="text-zinc-400 text-xs font-bold uppercase tracking-wider">
+              {language === 'fr' ? "Dépenses d'Exploitation" : 'Operating Expenses'}
+            </span>
             <div className="p-2 rounded-lg bg-zinc-800/50 text-zinc-500 group-hover:text-zinc-300 transition-colors">
               <ArrowDownRight className="w-4 h-4" />
             </div>
@@ -796,8 +841,10 @@ export const ExecutiveDashboard: React.FC<ExecutiveDashboardProps> = ({
             {formatCurrency(totalOperatingExpenses, currency)}
           </div>
           <div className="mt-2 text-[11px] text-zinc-500 flex items-center justify-between">
-            <span>Maintenance: {formatCurrency(expBreakdown.Maintenance, currency)}</span>
-            <span className="font-semibold group-hover:text-zinc-400 group-hover:underline">Drill-Down &rarr;</span>
+            <span>{language === 'fr' ? `Maintenance : ${formatCurrency(expBreakdown.Maintenance, currency)}` : `Maintenance: ${formatCurrency(expBreakdown.Maintenance, currency)}`}</span>
+            <span className="font-semibold group-hover:text-zinc-400 group-hover:underline">
+              {language === 'fr' ? 'Détail →' : 'Drill-Down →'}
+            </span>
           </div>
         </div>
 
@@ -806,7 +853,9 @@ export const ExecutiveDashboard: React.FC<ExecutiveDashboardProps> = ({
           className="p-5 bg-[#1C1C1C] rounded-xl border border-zinc-800 transition-all duration-300 ease-out cursor-pointer group shadow-xl hover:scale-[1.02] hover:border-zinc-700/80"
         >
           <div className="flex items-center justify-between mb-2">
-            <span className="text-zinc-400 text-xs font-bold uppercase tracking-wider">Fleet Utilization</span>
+            <span className="text-zinc-400 text-xs font-bold uppercase tracking-wider">
+              {language === 'fr' ? 'Utilisation de la Flotte' : 'Fleet Utilization'}
+            </span>
             <div className="p-2 rounded-lg bg-zinc-800/50 text-zinc-500 group-hover:text-zinc-300 transition-colors">
               <Activity className="w-4 h-4" />
             </div>
@@ -815,8 +864,10 @@ export const ExecutiveDashboard: React.FC<ExecutiveDashboardProps> = ({
             {utilizationRes.utilizationRate}%
           </div>
           <div className="mt-2 text-[11px] text-zinc-500 flex items-center justify-between">
-            <span>{utilizationRes.totalActualDays} Rented / {utilizationRes.totalAvailableDays} Avail Days</span>
-            <span className="font-semibold group-hover:text-zinc-400 group-hover:underline">Drill-Down &rarr;</span>
+            <span>{language === 'fr' ? `${utilizationRes.totalActualDays} Louées / ${utilizationRes.totalAvailableDays} Jours Dispo` : `${utilizationRes.totalActualDays} Rented / ${utilizationRes.totalAvailableDays} Avail Days`}</span>
+            <span className="font-semibold group-hover:text-zinc-400 group-hover:underline">
+              {language === 'fr' ? 'Détail →' : 'Drill-Down →'}
+            </span>
           </div>
         </div>
 
@@ -825,7 +876,9 @@ export const ExecutiveDashboard: React.FC<ExecutiveDashboardProps> = ({
           className="p-5 bg-[#1C1C1C] rounded-xl border border-zinc-800 transition-all duration-300 ease-out cursor-pointer group shadow-xl hover:scale-[1.02] hover:border-zinc-700/80 shadow-[#D4A017]/5"
         >
           <div className="flex items-center justify-between mb-2">
-            <span className="text-zinc-400 text-xs font-bold uppercase tracking-wider">Avg Rev / Rental Day</span>
+            <span className="text-zinc-400 text-xs font-bold uppercase tracking-wider">
+              {language === 'fr' ? 'Rev. Moy / Jour de Location' : 'Avg Rev / Rental Day'}
+            </span>
             <div className="p-2 rounded-lg bg-zinc-800/50 text-zinc-500 group-hover:text-zinc-300 transition-colors">
               <Compass className="w-4 h-4" />
             </div>
@@ -834,8 +887,10 @@ export const ExecutiveDashboard: React.FC<ExecutiveDashboardProps> = ({
             {formatCurrency(avgRevenuePerRentalDay, currency)}
           </div>
           <div className="mt-2 text-[11px] text-zinc-500 flex items-center justify-between">
-            <span>Total Rental Days: {totalRentalDays}</span>
-            <span className="font-semibold group-hover:text-zinc-400 group-hover:underline">Drill-Down &rarr;</span>
+            <span>{language === 'fr' ? `Total Jours Location : ${totalRentalDays}` : `Total Rental Days: ${totalRentalDays}`}</span>
+            <span className="font-semibold group-hover:text-zinc-400 group-hover:underline">
+              {language === 'fr' ? 'Détail →' : 'Drill-Down →'}
+            </span>
           </div>
         </div>
       </div>
@@ -845,67 +900,69 @@ export const ExecutiveDashboard: React.FC<ExecutiveDashboardProps> = ({
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-2">
             <Target className="w-5 h-5 text-[#D4A017]" />
-            <h3 className="text-base font-bold text-white">Management Benchmarks vs Actual Performance</h3>
+            <h3 className="text-base font-bold text-white">
+              {language === 'fr' ? 'Repères de Gestion vs Performance Réelle' : 'Management Benchmarks vs Actual Performance'}
+            </h3>
           </div>
           <button onClick={() => setIsTargetsOpen(true)} className="text-xs text-[#D4A017] hover:underline font-bold cursor-pointer">
-            Edit Configured Targets
+            {language === 'fr' ? 'Modifier les Objectifs Configurés' : 'Edit Configured Targets'}
           </button>
         </div>
 
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 text-xs font-mono">
           <div className="p-4 bg-[#1C1C1C] rounded-xl border border-zinc-800 space-y-2.5">
             <div className="flex justify-between items-center text-zinc-400">
-              <span>Monthly Revenue Target</span>
+              <span>{language === 'fr' ? 'Objectif Chiffre d’Affaires Mensuel' : 'Monthly Revenue Target'}</span>
               <span className="font-bold text-[#D4A017]">{calculateTargetAchievement(totalRevenue, targets.monthlyRevenueTarget)}%</span>
             </div>
             <div className="w-full bg-[#2D2D2D] h-2 rounded-full overflow-hidden">
               <div className="h-full rounded-full bg-[#D4A017]" style={{ width: `${Math.min(100, calculateTargetAchievement(totalRevenue, targets.monthlyRevenueTarget))}%` }} />
             </div>
             <div className="flex justify-between text-[11px] pt-1">
-              <span className="text-gray-300 font-semibold">Actual: {formatCurrency(totalRevenue, currency)}</span>
-              <span className="text-zinc-500">Target: {formatCurrency(targets.monthlyRevenueTarget, currency)}</span>
+              <span className="text-gray-300 font-semibold">{language === 'fr' ? `Réel : ${formatCurrency(totalRevenue, currency)}` : `Actual: ${formatCurrency(totalRevenue, currency)}`}</span>
+              <span className="text-zinc-500">{language === 'fr' ? `Cible : ${formatCurrency(targets.monthlyRevenueTarget, currency)}` : `Target: ${formatCurrency(targets.monthlyRevenueTarget, currency)}`}</span>
             </div>
           </div>
 
           <div className="p-4 bg-[#1C1C1C] rounded-xl border border-zinc-800 space-y-2.5">
             <div className="flex justify-between items-center text-zinc-400">
-              <span>Utilization Target</span>
+              <span>{language === 'fr' ? 'Objectif d’Utilisation' : 'Utilization Target'}</span>
               <span className="font-bold text-emerald-500">{calculateTargetAchievement(utilizationRes.utilizationRate, targets.fleetUtilizationTarget)}%</span>
             </div>
             <div className="w-full bg-[#2D2D2D] h-2 rounded-full overflow-hidden">
               <div className={`h-full rounded-full ${calculateTargetAchievement(utilizationRes.utilizationRate, targets.fleetUtilizationTarget) < 70 ? 'bg-rose-600' : 'bg-emerald-600'}`} style={{ width: `${Math.min(100, calculateTargetAchievement(utilizationRes.utilizationRate, targets.fleetUtilizationTarget))}%` }} />
             </div>
             <div className="flex justify-between text-[11px] pt-1">
-              <span className="text-gray-300 font-semibold">Actual: {utilizationRes.utilizationRate}%</span>
-              <span className="text-zinc-500">Target: {targets.fleetUtilizationTarget}%</span>
+              <span className="text-gray-300 font-semibold">{language === 'fr' ? `Réel : ${utilizationRes.utilizationRate}%` : `Actual: ${utilizationRes.utilizationRate}%`}</span>
+              <span className="text-zinc-500">{language === 'fr' ? `Cible : ${targets.fleetUtilizationTarget}%` : `Target: ${targets.fleetUtilizationTarget}%`}</span>
             </div>
           </div>
 
           <div className="p-4 bg-[#1C1C1C] rounded-xl border border-zinc-800 space-y-2.5">
             <div className="flex justify-between items-center text-zinc-400">
-              <span>Profit Margin Target</span>
+              <span>{language === 'fr' ? 'Objectif de Marge Bénéficiaire' : 'Profit Margin Target'}</span>
               <span className="font-bold text-[#D4A017]">{calculateTargetAchievement(profitMargin, targets.profitMarginTarget)}%</span>
             </div>
             <div className="w-full bg-[#2D2D2D] h-2 rounded-full overflow-hidden">
               <div className="h-full rounded-full bg-[#D4A017]" style={{ width: `${Math.min(100, calculateTargetAchievement(profitMargin, targets.profitMarginTarget))}%` }} />
             </div>
             <div className="flex justify-between text-[11px] pt-1">
-              <span className="text-gray-300 font-semibold">Actual: {profitMargin.toFixed(1)}%</span>
-              <span className="text-zinc-500">Target: {targets.profitMarginTarget}%</span>
+              <span className="text-gray-300 font-semibold">{language === 'fr' ? `Réel : ${profitMargin.toFixed(1)}%` : `Actual: ${profitMargin.toFixed(1)}%`}</span>
+              <span className="text-zinc-500">{language === 'fr' ? `Cible : ${targets.profitMarginTarget}%` : `Target: ${targets.profitMarginTarget}%`}</span>
             </div>
           </div>
 
           <div className="p-4 bg-[#1C1C1C] rounded-xl border border-zinc-800 space-y-2.5">
             <div className="flex justify-between items-center text-zinc-400">
-              <span>Fleet Investment Recovery</span>
+              <span>{language === 'fr' ? 'Récupération Investissement Flotte' : 'Fleet Investment Recovery'}</span>
               <span className="font-bold text-emerald-500">{investmentRecoveryPercent.toFixed(1)}%</span>
             </div>
             <div className="w-full bg-[#2D2D2D] h-2 rounded-full overflow-hidden">
               <div className="h-full rounded-full bg-emerald-600" style={{ width: `${Math.min(100, investmentRecoveryPercent)}%` }} />
             </div>
             <div className="flex justify-between text-[11px] pt-1">
-              <span className="text-gray-300 font-semibold">Actual: {formatCurrency(totalRevenue, currency)}</span>
-              <span className="text-zinc-500">Remaining: {formatCurrency(remainingInvestmentRecovery, currency)}</span>
+              <span className="text-gray-300 font-semibold">{language === 'fr' ? `Réel : ${formatCurrency(totalRevenue, currency)}` : `Actual: ${formatCurrency(totalRevenue, currency)}`}</span>
+              <span className="text-zinc-500">{language === 'fr' ? `Restant : ${formatCurrency(remainingInvestmentRecovery, currency)}` : `Remaining: ${formatCurrency(remainingInvestmentRecovery, currency)}`}</span>
             </div>
           </div>
         </div>
@@ -916,17 +973,19 @@ export const ExecutiveDashboard: React.FC<ExecutiveDashboardProps> = ({
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
           <div>
             <h3 className="text-base font-bold text-white flex items-center gap-2">
-              <span>Vehicle Decision Engine & Profitability Matrix</span>
+              <span>{language === 'fr' ? 'Moteur de Décision & Matrice de Rentabilité des Véhicules' : 'Vehicle Decision Engine & Profitability Matrix'}</span>
               <span className="text-xs px-2 py-0.5 rounded bg-[#D4A017]/10 text-[#D4A017] border border-[#D4A017]/20 font-mono">
-                KEEP / MONITOR / SELL
+                {language === 'fr' ? 'CONSERVER / SURVEILLER / VENDRE' : 'KEEP / MONITOR / SELL'}
               </span>
             </h3>
             <p className="text-xs text-zinc-400 mt-0.5">
-              Automated asset recommendation based on ROI % threshold rules (&gt;{targets.keepRoiThreshold}% KEEP, &lt;{targets.sellRoiThreshold}% SELL).
+              {language === 'fr'
+                ? `Recommandation d'actifs automatisée basée sur les règles de seuil de ROI % (> ${targets.keepRoiThreshold}% CONSERVER, < ${targets.sellRoiThreshold}% VENDRE).`
+                : `Automated asset recommendation based on ROI % threshold rules (> ${targets.keepRoiThreshold}% KEEP, < ${targets.sellRoiThreshold}% SELL).`}
             </p>
           </div>
           <button onClick={() => onNavigate('fleet')} className="text-xs text-[#D4A017] hover:underline font-bold cursor-pointer">
-            Manage Fleet Assets &rarr;
+            {language === 'fr' ? 'Gérer les Actifs de la Flotte →' : 'Manage Fleet Assets →'}
           </button>
         </div>
 
@@ -934,16 +993,16 @@ export const ExecutiveDashboard: React.FC<ExecutiveDashboardProps> = ({
           <table className="w-full text-xs text-left border-collapse">
             <thead className="bg-[#1A1A1A]">
               <tr className="border-b border-zinc-800">
-                <th className="p-4 text-zinc-400 text-[10px] font-semibold uppercase tracking-wider">Motorcycle Asset</th>
-                <th className="p-4 text-zinc-400 text-[10px] font-semibold uppercase tracking-wider">Status</th>
-                <th className="p-4 text-zinc-400 text-[10px] font-semibold uppercase tracking-wider">Investment</th>
-                <th className="p-4 text-zinc-400 text-[10px] font-semibold uppercase tracking-wider">Revenue</th>
-                <th className="p-4 text-zinc-400 text-[10px] font-semibold uppercase tracking-wider">Operating Cost</th>
-                <th className="p-4 text-zinc-400 text-[10px] font-semibold uppercase tracking-wider">Acc. Depreciation</th>
-                <th className="p-4 text-zinc-400 text-[10px] font-semibold uppercase tracking-wider">Net Profit</th>
+                <th className="p-4 text-zinc-400 text-[10px] font-semibold uppercase tracking-wider">{language === 'fr' ? 'Moto / Actif' : 'Motorcycle Asset'}</th>
+                <th className="p-4 text-zinc-400 text-[10px] font-semibold uppercase tracking-wider">{language === 'fr' ? 'Statut' : 'Status'}</th>
+                <th className="p-4 text-zinc-400 text-[10px] font-semibold uppercase tracking-wider">{language === 'fr' ? 'Investissement' : 'Investment'}</th>
+                <th className="p-4 text-zinc-400 text-[10px] font-semibold uppercase tracking-wider">{language === 'fr' ? 'Chiffre d’Affaires' : 'Revenue'}</th>
+                <th className="p-4 text-zinc-400 text-[10px] font-semibold uppercase tracking-wider">{language === 'fr' ? 'Coût d’Exploitation' : 'Operating Cost'}</th>
+                <th className="p-4 text-zinc-400 text-[10px] font-semibold uppercase tracking-wider">{language === 'fr' ? 'Amort. Cumulé' : 'Acc. Depreciation'}</th>
+                <th className="p-4 text-zinc-400 text-[10px] font-semibold uppercase tracking-wider">{language === 'fr' ? 'Bénéfice Net' : 'Net Profit'}</th>
                 <th className="p-4 text-zinc-400 text-[10px] font-semibold uppercase tracking-wider">ROI %</th>
-                <th className="p-4 text-zinc-400 text-[10px] font-semibold uppercase tracking-wider">Est. Market Val</th>
-                <th className="p-4 text-zinc-400 text-[10px] font-semibold uppercase tracking-wider text-center">Decision Verdict</th>
+                <th className="p-4 text-zinc-400 text-[10px] font-semibold uppercase tracking-wider">{language === 'fr' ? 'Val. Marché Est.' : 'Est. Market Val'}</th>
+                <th className="p-4 text-zinc-400 text-[10px] font-semibold uppercase tracking-wider text-center">{language === 'fr' ? 'Verdict de Décision' : 'Decision Verdict'}</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-zinc-800/50 font-mono text-gray-300">
@@ -955,7 +1014,15 @@ export const ExecutiveDashboard: React.FC<ExecutiveDashboardProps> = ({
                   </td>
                   <td className="p-4">
                     <span className="px-2 py-0.5 rounded text-[10px] font-sans font-bold uppercase bg-zinc-800/50 text-zinc-400 border border-zinc-700/50">
-                      {motorcycle.currentStatus}
+                      {language === 'fr' 
+                        ? (motorcycle.currentStatus === 'Rented' ? 'Louée' 
+                          : motorcycle.currentStatus === 'Available' ? 'Disponible' 
+                          : motorcycle.currentStatus === 'Reserved' ? 'Réservée' 
+                          : motorcycle.currentStatus === 'Maintenance' ? 'En maintenance' 
+                          : motorcycle.currentStatus === 'Damaged' ? 'Endommagée' 
+                          : motorcycle.currentStatus === 'Out of service' ? 'Hors service' 
+                          : motorcycle.currentStatus === 'Sold' ? 'Vendue' : motorcycle.currentStatus)
+                        : motorcycle.currentStatus}
                     </span>
                   </td>
                   <td className="p-4">{formatCurrency(motorcycle.purchasePrice, currency)}</td>
@@ -978,7 +1045,7 @@ export const ExecutiveDashboard: React.FC<ExecutiveDashboardProps> = ({
                           className="w-20 bg-[#111111] border border-[#D4A017] px-1 py-0.5 rounded text-xs text-white"
                         />
                         <button onClick={() => handleSaveMarketValue(motorcycle.id)} className="text-xs bg-[#D4A017] text-black px-1.5 py-0.5 rounded font-sans font-bold cursor-pointer">
-                          Save
+                          {language === 'fr' ? 'Enregistrer' : 'Save'}
                         </button>
                       </div>
                     ) : (
@@ -999,7 +1066,9 @@ export const ExecutiveDashboard: React.FC<ExecutiveDashboardProps> = ({
                       decision === 'MONITOR' ? 'bg-amber-500/10 text-amber-400 border-amber-500/20' :
                       'bg-rose-500/10 text-rose-400 border-rose-500/20'
                     }`}>
-                      {decision}
+                      {language === 'fr' 
+                        ? (decision === 'KEEP' ? 'CONSERVER' : decision === 'MONITOR' ? 'SURVEILLER' : 'VENDRE')
+                        : decision}
                     </span>
                   </td>
                 </tr>
@@ -1014,7 +1083,7 @@ export const ExecutiveDashboard: React.FC<ExecutiveDashboardProps> = ({
         <div className="p-5 rounded-2xl bg-[#181818] border border-[#2D2D2D] shadow-xl space-y-3">
           <div className="flex items-center justify-between">
             <h4 className="text-xs font-bold uppercase tracking-wider text-[#D4A017] flex items-center gap-2">
-              <BarChart3 className="w-4 h-4" /> 1. Financial Performance Breakdown
+              <BarChart3 className="w-4 h-4" /> {language === 'fr' ? '1. Ventilation de la Performance Financière' : '1. Financial Performance Breakdown'}
             </h4>
             <span className="text-[11px] text-zinc-400 font-mono">{periodLabelText}</span>
           </div>
@@ -1024,7 +1093,7 @@ export const ExecutiveDashboard: React.FC<ExecutiveDashboardProps> = ({
                 <CartesianGrid strokeDasharray="3 3" stroke="#2A2A2A" />
                 <XAxis dataKey="name" stroke="#888888" tick={{ fontSize: 11 }} />
                 <YAxis stroke="#888888" tick={{ fontSize: 11 }} />
-                <Tooltip contentStyle={{ backgroundColor: '#1A1A1A', borderColor: '#333', color: '#fff', fontSize: '12px' }} formatter={(val: any) => [formatCurrency(Number(val), currency), 'Amount']} />
+                <Tooltip contentStyle={{ backgroundColor: '#1A1A1A', borderColor: '#333', color: '#fff', fontSize: '12px' }} formatter={(val: any) => [formatCurrency(Number(val), currency), language === 'fr' ? 'Montant' : 'Amount']} />
                 <Bar dataKey="amount" radius={[6, 6, 0, 0]}>
                   {chart1FinancialPerf.map((entry, index) => (
                     <Cell key={`cell-${index}`} fill={entry.fill} />
@@ -1038,9 +1107,9 @@ export const ExecutiveDashboard: React.FC<ExecutiveDashboardProps> = ({
         <div className="p-5 rounded-2xl bg-[#181818] border border-[#2D2D2D] shadow-xl space-y-3">
           <div className="flex items-center justify-between">
             <h4 className="text-xs font-bold uppercase tracking-wider text-[#D4A017] flex items-center gap-2">
-              <PieIcon className="w-4 h-4" /> 2. Fleet Status Distribution
+              <PieIcon className="w-4 h-4" /> {language === 'fr' ? '2. Distribution des Statuts de la Flotte' : '2. Fleet Status Distribution'}
             </h4>
-            <span className="text-[11px] text-zinc-400 font-mono">Total {fleetStatusCounts.Total} Bikes</span>
+            <span className="text-[11px] text-zinc-400 font-mono">{language === 'fr' ? `Total ${fleetStatusCounts.Total} Motos` : `Total ${fleetStatusCounts.Total} Bikes`}</span>
           </div>
           <div className="h-64 w-full flex items-center justify-center">
             <ResponsiveContainer width="100%" height="100%">
@@ -1058,14 +1127,16 @@ export const ExecutiveDashboard: React.FC<ExecutiveDashboardProps> = ({
         </div>
 
         <div className="p-5 rounded-2xl bg-[#181818] border border-[#2D2D2D] shadow-xl space-y-3">
-          <h4 className="text-xs font-bold uppercase tracking-wider text-[#D4A017]">3. Revenue Generated by Motorcycle</h4>
+          <h4 className="text-xs font-bold uppercase tracking-wider text-[#D4A017]">
+            {language === 'fr' ? '3. Chiffre d’Affaires Généré par Moto' : '3. Revenue Generated by Motorcycle'}
+          </h4>
           <div className="h-64 w-full">
             <ResponsiveContainer width="100%" height="100%">
               <BarChart data={chart3RevenueByBike} layout="vertical">
                 <CartesianGrid strokeDasharray="3 3" stroke="#2A2A2A" />
                 <XAxis type="number" stroke="#888888" tick={{ fontSize: 10 }} />
                 <YAxis dataKey="name" type="category" stroke="#888888" tick={{ fontSize: 10 }} width={120} />
-                <Tooltip contentStyle={{ backgroundColor: '#1A1A1A', borderColor: '#333', color: '#fff', fontSize: '12px' }} formatter={(val: any) => [formatCurrency(Number(val), currency), 'Revenue']} />
+                <Tooltip contentStyle={{ backgroundColor: '#1A1A1A', borderColor: '#333', color: '#fff', fontSize: '12px' }} formatter={(val: any) => [formatCurrency(Number(val), currency), language === 'fr' ? 'Chiffre d’Affaires' : 'Revenue']} />
                 <Bar dataKey="revenue" fill="#10B981" radius={[0, 4, 4, 0]} />
               </BarChart>
             </ResponsiveContainer>
@@ -1073,14 +1144,16 @@ export const ExecutiveDashboard: React.FC<ExecutiveDashboardProps> = ({
         </div>
 
         <div className="p-5 rounded-2xl bg-[#181818] border border-[#2D2D2D] shadow-xl space-y-3">
-          <h4 className="text-xs font-bold uppercase tracking-wider text-[#D4A017]">4. Net Profit by Motorcycle</h4>
+          <h4 className="text-xs font-bold uppercase tracking-wider text-[#D4A017]">
+            {language === 'fr' ? '4. Bénéfice Net par Moto' : '4. Net Profit by Motorcycle'}
+          </h4>
           <div className="h-64 w-full">
             <ResponsiveContainer width="100%" height="100%">
               <BarChart data={chart4ProfitByBike} layout="vertical">
                 <CartesianGrid strokeDasharray="3 3" stroke="#2A2A2A" />
                 <XAxis type="number" stroke="#888888" tick={{ fontSize: 10 }} />
                 <YAxis dataKey="name" type="category" stroke="#888888" tick={{ fontSize: 10 }} width={120} />
-                <Tooltip contentStyle={{ backgroundColor: '#1A1A1A', borderColor: '#333', color: '#fff', fontSize: '12px' }} formatter={(val: any) => [formatCurrency(Number(val), currency), 'Net Profit']} />
+                <Tooltip contentStyle={{ backgroundColor: '#1A1A1A', borderColor: '#333', color: '#fff', fontSize: '12px' }} formatter={(val: any) => [formatCurrency(Number(val), currency), language === 'fr' ? 'Bénéfice Net' : 'Net Profit']} />
                 <Bar dataKey="profit" fill="#D4A017" radius={[0, 4, 4, 0]} />
               </BarChart>
             </ResponsiveContainer>
@@ -1088,7 +1161,9 @@ export const ExecutiveDashboard: React.FC<ExecutiveDashboardProps> = ({
         </div>
 
         <div className="p-5 rounded-2xl bg-[#181818] border border-[#2D2D2D] shadow-xl space-y-3">
-          <h4 className="text-xs font-bold uppercase tracking-wider text-[#D4A017]">5. Vehicle ROI % Leaderboard</h4>
+          <h4 className="text-xs font-bold uppercase tracking-wider text-[#D4A017]">
+            {language === 'fr' ? '5. Classement ROI % des Véhicules' : '5. Vehicle ROI % Leaderboard'}
+          </h4>
           <div className="h-64 w-full">
             <ResponsiveContainer width="100%" height="100%">
               <BarChart data={chart5ROIByBike}>
@@ -1103,14 +1178,16 @@ export const ExecutiveDashboard: React.FC<ExecutiveDashboardProps> = ({
         </div>
 
         <div className="p-5 rounded-2xl bg-[#181818] border border-[#2D2D2D] shadow-xl space-y-3">
-          <h4 className="text-xs font-bold uppercase tracking-wider text-[#D4A017]">6. Capital Valuation Comparison</h4>
+          <h4 className="text-xs font-bold uppercase tracking-wider text-[#D4A017]">
+            {language === 'fr' ? '6. Comparaison de l’Évaluation du Capital' : '6. Capital Valuation Comparison'}
+          </h4>
           <div className="h-64 w-full">
             <ResponsiveContainer width="100%" height="100%">
               <BarChart data={chart6CapValuation}>
                 <CartesianGrid strokeDasharray="3 3" stroke="#2A2A2A" />
                 <XAxis dataKey="name" stroke="#888888" tick={{ fontSize: 11 }} />
                 <YAxis stroke="#888888" tick={{ fontSize: 11 }} />
-                <Tooltip contentStyle={{ backgroundColor: '#1A1A1A', borderColor: '#333', color: '#fff', fontSize: '12px' }} formatter={(val: any) => [formatCurrency(Number(val), currency), 'Value']} />
+                <Tooltip contentStyle={{ backgroundColor: '#1A1A1A', borderColor: '#333', color: '#fff', fontSize: '12px' }} formatter={(val: any) => [formatCurrency(Number(val), currency), language === 'fr' ? 'Valeur' : 'Value']} />
                 <Bar dataKey="value" radius={[6, 6, 0, 0]}>
                   {chart6CapValuation.map((entry, index) => (
                     <Cell key={`cell-cap-${index}`} fill={entry.fill} />
@@ -1122,32 +1199,36 @@ export const ExecutiveDashboard: React.FC<ExecutiveDashboardProps> = ({
         </div>
 
         <div className="p-5 rounded-2xl bg-[#181818] border border-[#2D2D2D] shadow-xl space-y-3">
-          <h4 className="text-xs font-bold uppercase tracking-wider text-[#D4A017]">7. Fleet Amortization & Book Value Curve</h4>
+          <h4 className="text-xs font-bold uppercase tracking-wider text-[#D4A017]">
+            {language === 'fr' ? '7. Courbe d’Amortissement & Valeur Comptable' : '7. Fleet Amortization & Book Value Curve'}
+          </h4>
           <div className="h-64 w-full">
             <ResponsiveContainer width="100%" height="100%">
               <AreaChart data={chart7DeprTrend}>
                 <CartesianGrid strokeDasharray="3 3" stroke="#2A2A2A" />
                 <XAxis dataKey="month" stroke="#888888" tick={{ fontSize: 11 }} />
                 <YAxis stroke="#888888" tick={{ fontSize: 11 }} />
-                <Tooltip contentStyle={{ backgroundColor: '#1A1A1A', borderColor: '#333', color: '#fff', fontSize: '12px' }} formatter={(val: any) => [formatCurrency(Number(val), currency), 'Value']} />
-                <Area type="monotone" dataKey="bookValue" stroke="#10B981" fill="#10B981" fillOpacity={0.15} name="Book Value" />
-                <Area type="monotone" dataKey="accDepr" stroke="#F59E0B" fill="#F59E0B" fillOpacity={0.15} name="Acc. Depreciation" />
+                <Tooltip contentStyle={{ backgroundColor: '#1A1A1A', borderColor: '#333', color: '#fff', fontSize: '12px' }} formatter={(val: any) => [formatCurrency(Number(val), currency), language === 'fr' ? 'Valeur' : 'Value']} />
+                <Area type="monotone" dataKey="bookValue" stroke="#10B981" fill="#10B981" fillOpacity={0.15} name={language === 'fr' ? 'Valeur Comptable' : 'Book Value'} />
+                <Area type="monotone" dataKey="accDepr" stroke="#F59E0B" fill="#F59E0B" fillOpacity={0.15} name={language === 'fr' ? 'Amort. Cumulé' : 'Acc. Depreciation'} />
               </AreaChart>
             </ResponsiveContainer>
           </div>
         </div>
 
         <div className="p-5 rounded-2xl bg-[#181818] border border-[#2D2D2D] shadow-xl space-y-3">
-          <h4 className="text-xs font-bold uppercase tracking-wider text-[#D4A017]">8 & 9. Monthly Revenue & Profit Trajectory</h4>
+          <h4 className="text-xs font-bold uppercase tracking-wider text-[#D4A017]">
+            {language === 'fr' ? '8 & 9. Trajectoire du Chiffre d’Affaires & du Bénéfice' : '8 & 9. Monthly Revenue & Profit Trajectory'}
+          </h4>
           <div className="h-64 w-full">
             <ResponsiveContainer width="100%" height="100%">
               <AreaChart data={chart8MonthlyRevTrend}>
                 <CartesianGrid strokeDasharray="3 3" stroke="#2A2A2A" />
                 <XAxis dataKey="month" stroke="#888888" tick={{ fontSize: 11 }} />
                 <YAxis stroke="#888888" tick={{ fontSize: 11 }} />
-                <Tooltip contentStyle={{ backgroundColor: '#1A1A1A', borderColor: '#333', color: '#fff', fontSize: '12px' }} formatter={(val: any) => [formatCurrency(Number(val), currency), 'Amount']} />
-                <Area type="monotone" dataKey="revenue" stroke="#10B981" fill="#10B981" fillOpacity={0.2} name="Revenue" />
-                <Area type="monotone" dataKey="profit" stroke="#D4A017" fill="#D4A017" fillOpacity={0.2} name="Net Profit" />
+                <Tooltip contentStyle={{ backgroundColor: '#1A1A1A', borderColor: '#333', color: '#fff', fontSize: '12px' }} formatter={(val: any) => [formatCurrency(Number(val), currency), language === 'fr' ? 'Montant' : 'Amount']} />
+                <Area type="monotone" dataKey="revenue" stroke="#10B981" fill="#10B981" fillOpacity={0.2} name={language === 'fr' ? 'Chiffre d’Affaires' : 'Revenue'} />
+                <Area type="monotone" dataKey="profit" stroke="#D4A017" fill="#D4A017" fillOpacity={0.2} name={language === 'fr' ? 'Bénéfice Net' : 'Net Profit'} />
               </AreaChart>
             </ResponsiveContainer>
           </div>
