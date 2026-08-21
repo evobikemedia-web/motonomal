@@ -79,6 +79,7 @@ export const ExecutiveDashboard: React.FC<ExecutiveDashboardProps> = ({
 }) => {
   const { t, language } = useLanguage();
 
+  // Utilisation directe des props de date reçues du Header
   const selectedRange = dateRange || 'this_month';
   const [selectedMotorcycleFilter, setSelectedMotorcycleFilter] = useState<string>('all');
   const [selectedCategoryFilter, setSelectedCategoryFilter] = useState<string>('all');
@@ -88,7 +89,7 @@ export const ExecutiveDashboard: React.FC<ExecutiveDashboardProps> = ({
   const [isTargetsOpen, setIsTargetsOpen] = useState(false);
   const [targets, setTargets] = useState<ManagementTargets>(DEFAULT_MANAGEMENT_TARGETS);
 
-  // Animation State - triggers staggered fade-in-up animations on mount
+  // Animation State
   const [isLoaded, setIsLoaded] = useState(false);
   useEffect(() => {
     setIsLoaded(true);
@@ -114,7 +115,7 @@ export const ExecutiveDashboard: React.FC<ExecutiveDashboardProps> = ({
   const [tempMarketVal, setTempMarketVal] = useState<number>(0);
 
   // ----------------------------------------------------
-  // FILTERED DATASETS
+  // FILTERED DATASETS (Dynamiquement liés au Header)
   // ----------------------------------------------------
   const filteredRevenues = useMemo(() => {
     let filtered = filterByDateRange(revenues, (r) => r.date, selectedRange, customStartDate, customEndDate);
@@ -195,7 +196,7 @@ export const ExecutiveDashboard: React.FC<ExecutiveDashboardProps> = ({
     };
   }, [motorcycles]);
 
-  const totalDepreciationForPeriod = fleetKPIs.monthlyFleetDepreciation; // Monthly allocation for active period
+  const totalDepreciationForPeriod = fleetKPIs.monthlyFleetDepreciation;
   const netProfit = grossOperatingProfit - totalDepreciationForPeriod;
   const profitMargin = totalRevenue > 0 ? (netProfit / totalRevenue) * 100 : 0;
 
@@ -217,7 +218,6 @@ export const ExecutiveDashboard: React.FC<ExecutiveDashboardProps> = ({
     [motorcycles, filteredReservations, daysInPeriod]
   );
 
-  // Rental Day Calculations
   const totalRentalDays = useMemo(() => {
     return filteredReservations.reduce((sum, res) => {
       if (res.status === 'Active' || res.status === 'Confirmed' || res.status === 'Returned' || res.status === 'Closed') {
@@ -229,11 +229,9 @@ export const ExecutiveDashboard: React.FC<ExecutiveDashboardProps> = ({
 
   const avgRevenuePerRentalDay = totalRentalDays > 0 ? revBreakdown.Rental / totalRentalDays : 0;
 
-  // Investment Recovery
   const investmentRecoveryPercent = fleetKPIs.totalInvestment > 0 ? (totalRevenue / fleetKPIs.totalInvestment) * 100 : 0;
   const remainingInvestmentRecovery = Math.max(0, fleetKPIs.totalInvestment - totalRevenue);
 
-  // Fleet Status Distribution Counts
   const fleetStatusCounts = useMemo(() => {
     const counts = {
       Available: 0,
@@ -253,7 +251,6 @@ export const ExecutiveDashboard: React.FC<ExecutiveDashboardProps> = ({
     return counts;
   }, [motorcycles]);
 
-  // Motorcycle Profitability & Decision Matrix
   const bikeProfitabilityList = useMemo(() => {
     return (motorcycles || []).map((m) => {
       const prof = calculateMotorcycleProfitability(
@@ -272,17 +269,8 @@ export const ExecutiveDashboard: React.FC<ExecutiveDashboardProps> = ({
     });
   }, [motorcycles, revenues, expenses, reservations, maintenance, targets]);
 
-  // Top Performers
   const topBikesByRevenue = useMemo(
     () => [...bikeProfitabilityList].sort((a, b) => b.revenue - a.revenue).slice(0, 5),
-    [bikeProfitabilityList]
-  );
-  const topBikesByProfit = useMemo(
-    () => [...bikeProfitabilityList].sort((a, b) => b.netProfit - a.netProfit).slice(0, 5),
-    [bikeProfitabilityList]
-  );
-  const topBikesByROI = useMemo(
-    () => [...bikeProfitabilityList].sort((a, b) => b.roi - a.roi).slice(0, 5),
     [bikeProfitabilityList]
   );
 
@@ -294,16 +282,9 @@ export const ExecutiveDashboard: React.FC<ExecutiveDashboardProps> = ({
     return (clients || []).slice().sort((a, b) => (b.lifetimeValue || b.totalSpent || 0) - (a.lifetimeValue || a.totalSpent || 0)).slice(0, 5);
   }, [clients]);
 
-  // YoY Comparison (2026 vs 2025 mock/historical calculations)
-  const yoy2025Revenue = 980000;
-  const yoy2026Revenue = totalRevenue * 12; // Annualized projection
-  const revenueYoY = calculateYoYGrowth(yoy2026Revenue, yoy2025Revenue);
-
-  // Dynamic Management Alerts
   const alerts = useMemo(() => {
     const list: { id: string; type: 'warning' | 'danger' | 'info'; title: string; message: string; tab?: string }[] = [];
 
-    // Low ROI bikes
     bikeProfitabilityList.forEach((bp) => {
       if (bp.decision === 'SELL') {
         list.push({
@@ -316,7 +297,6 @@ export const ExecutiveDashboard: React.FC<ExecutiveDashboardProps> = ({
       }
     });
 
-    // Maintenance required
     if (fleetStatusCounts.Maintenance > 0) {
       list.push({
         id: 'maint_active',
@@ -327,7 +307,6 @@ export const ExecutiveDashboard: React.FC<ExecutiveDashboardProps> = ({
       });
     }
 
-    // Unpaid reservations
     const unpaid = filteredReservations.filter((r) => r.paymentStatus === 'Pending' || r.paymentStatus === 'Partial');
     if (unpaid.length > 0) {
       list.push({
@@ -339,23 +318,9 @@ export const ExecutiveDashboard: React.FC<ExecutiveDashboardProps> = ({
       });
     }
 
-    // Near depreciated
-    bikeProfitabilityList.forEach((bp) => {
-      if (bp.depreciationStatus === 'Near Fully Depreciated') {
-        list.push({
-          id: 'depr_near_' + bp.motorcycle.id,
-          type: 'info',
-          title: `Near Depreciated Asset: ${bp.motorcycle.brand} ${bp.motorcycle.model}`,
-          message: `Over 80% of accounting depreciable value has been amortized.`,
-          tab: 'fleet',
-        });
-      }
-    });
-
     return list;
   }, [bikeProfitabilityList, fleetStatusCounts, filteredReservations, targets]);
 
-  // Period Label string
   const periodLabelText = useMemo(() => {
     if (selectedRange === 'today') return 'Today';
     if (selectedRange === 'this_week') return 'This Week';
@@ -367,14 +332,6 @@ export const ExecutiveDashboard: React.FC<ExecutiveDashboardProps> = ({
     return 'All Time';
   }, [selectedRange, customStartDate, customEndDate]);
 
-  const getProgressBarTone = (value: number) => {
-    if (value < 30) return 'from-red-500 to-red-400';
-    if (value < 70) return 'from-amber-500 to-yellow-400';
-    return 'from-emerald-500 to-green-400';
-  };
-
-  // Explicitly construct the summary JSX with only business metrics highlighted,
-  // NOT capturing vehicle model numbers like "1250" from "BMW R 1250 GS"
   const summaryJSX = useMemo(() => {
     const topBike = topBikesByRevenue[0]?.motorcycle;
     const margin = totalRevenue > 0 ? Math.round((netProfit / totalRevenue) * 100) : 0;
@@ -383,108 +340,64 @@ export const ExecutiveDashboard: React.FC<ExecutiveDashboardProps> = ({
     const profitFormatted = formatCurrency(netProfit, currency);
     const utilText = `${utilizationRes.utilizationRate}%`;
     const bikeCountText = fleetStatusCounts.Total === 1 ? '1 moto' : `${fleetStatusCounts.Total} motos`;
-    const maintenanceText = fleetStatusCounts.Maintenance === 1 ? '1 véhicule' : `${fleetStatusCounts.Maintenance} véhicule(s)`;
-    const unpaidText = unpaidCount === 1 ? '1 réservation' : `${unpaidCount} réservation(s)`;
 
     if (language === 'fr') {
       return (
         <>
           {`Pour la période sélectionnée (${periodLabelText}), Motonomad a enregistré un chiffre d'affaires total de `}
-          <span className="inline-block px-1.5 py-0.5 mx-0.5 rounded-md bg-[#D4A017]/12 text-[#F9D77A] font-bold border border-[#D4A017]/20 shadow-sm shadow-[#D4A017]/10">
+          <span className="inline-block px-1.5 py-0.5 mx-0.5 rounded-md bg-[#D4A017]/12 text-[#F9D77A] font-bold border border-[#D4A017]/20">
             {revFormatted}
           </span>
           {` avec un bénéfice net de `}
-          <span className="inline-block px-1.5 py-0.5 mx-0.5 rounded-md bg-[#D4A017]/12 text-[#F9D77A] font-bold border border-[#D4A017]/20 shadow-sm shadow-[#D4A017]/10">
+          <span className="inline-block px-1.5 py-0.5 mx-0.5 rounded-md bg-[#D4A017]/12 text-[#F9D77A] font-bold border border-[#D4A017]/20">
             {profitFormatted}
           </span>
           {` (marge nette de `}
-          <span className="inline-block px-1.5 py-0.5 mx-0.5 rounded-md bg-[#D4A017]/12 text-[#F9D77A] font-bold border border-[#D4A017]/20 shadow-sm shadow-[#D4A017]/10">
+          <span className="inline-block px-1.5 py-0.5 mx-0.5 rounded-md bg-[#D4A017]/12 text-[#F9D77A] font-bold border border-[#D4A017]/20">
             {margin}%
           </span>
           {`). Le taux d'utilisation de la flotte s'élève à `}
-          <span className="inline-block px-1.5 py-0.5 mx-0.5 rounded-md bg-[#D4A017]/12 text-[#F9D77A] font-bold border border-[#D4A017]/20 shadow-sm shadow-[#D4A017]/10">
+          <span className="inline-block px-1.5 py-0.5 mx-0.5 rounded-md bg-[#D4A017]/12 text-[#F9D77A] font-bold border border-[#D4A017]/20">
             {utilText}
           </span>
           {` sur `}
-          <span className="inline-block px-1.5 py-0.5 mx-0.5 rounded-md bg-[#D4A017]/12 text-[#F9D77A] font-bold border border-[#D4A017]/20 shadow-sm shadow-[#D4A017]/10">
+          <span className="inline-block px-1.5 py-0.5 mx-0.5 rounded-md bg-[#D4A017]/12 text-[#F9D77A] font-bold border border-[#D4A017]/20">
             {bikeCountText}
           </span>
           {` actives. `}
-          {topBike && (
-            <>
-              {`Le véhicule le plus performant de la flotte est la ${topBike.brand} ${topBike.model}. `}
-            </>
-          )}
-          {fleetStatusCounts.Maintenance > 0 && (
-            <>
-              <span className="inline-block px-1.5 py-0.5 mx-0.5 rounded-md bg-[#D4A017]/12 text-[#F9D77A] font-bold border border-[#D4A017]/20 shadow-sm shadow-[#D4A017]/10">
-                {maintenanceText}
-              </span>
-              {` sont actuellement en cours de maintenance ou révision. `}
-            </>
-          )}
-          {unpaidCount > 0 && (
-            <>
-              <span className="inline-block px-1.5 py-0.5 mx-0.5 rounded-md bg-[#D4A017]/12 text-[#F9D77A] font-bold border border-[#D4A017]/20 shadow-sm shadow-[#D4A017]/10">
-                {unpaidText}
-              </span>
-              {` nécessitent un suivi de paiement. `}
-            </>
-          )}
+          {topBike && `Le véhicule le plus performant est la ${topBike.brand} ${topBike.model}. `}
         </>
       );
     } else {
       return (
         <>
-          {`For the selected period (${periodLabelText}), Motonomad recorded a total revenue of `}
-          <span className="inline-block px-1.5 py-0.5 mx-0.5 rounded-md bg-[#D4A017]/12 text-[#F9D77A] font-bold border border-[#D4A017]/20 shadow-sm shadow-[#D4A017]/10">
+          {`For the selected period (${periodLabelText}), Motonomad recorded total revenue of `}
+          <span className="inline-block px-1.5 py-0.5 mx-0.5 rounded-md bg-[#D4A017]/12 text-[#F9D77A] font-bold border border-[#D4A017]/20">
             {revFormatted}
           </span>
-          {` with a net profit of `}
-          <span className="inline-block px-1.5 py-0.5 mx-0.5 rounded-md bg-[#D4A017]/12 text-[#F9D77A] font-bold border border-[#D4A017]/20 shadow-sm shadow-[#D4A017]/10">
+          {` with net profit of `}
+          <span className="inline-block px-1.5 py-0.5 mx-0.5 rounded-md bg-[#D4A017]/12 text-[#F9D77A] font-bold border border-[#D4A017]/20">
             {profitFormatted}
           </span>
           {` (`}
-          <span className="inline-block px-1.5 py-0.5 mx-0.5 rounded-md bg-[#D4A017]/12 text-[#F9D77A] font-bold border border-[#D4A017]/20 shadow-sm shadow-[#D4A017]/10">
+          <span className="inline-block px-1.5 py-0.5 mx-0.5 rounded-md bg-[#D4A017]/12 text-[#F9D77A] font-bold border border-[#D4A017]/20">
             {margin}%
           </span>
           {` net margin). Fleet utilization stands at `}
-          <span className="inline-block px-1.5 py-0.5 mx-0.5 rounded-md bg-[#D4A017]/12 text-[#F9D77A] font-bold border border-[#D4A017]/20 shadow-sm shadow-[#D4A017]/10">
+          <span className="inline-block px-1.5 py-0.5 mx-0.5 rounded-md bg-[#D4A017]/12 text-[#F9D77A] font-bold border border-[#D4A017]/20">
             {utilText}
           </span>
           {` across `}
-          <span className="inline-block px-1.5 py-0.5 mx-0.5 rounded-md bg-[#D4A017]/12 text-[#F9D77A] font-bold border border-[#D4A017]/20 shadow-sm shadow-[#D4A017]/10">
+          <span className="inline-block px-1.5 py-0.5 mx-0.5 rounded-md bg-[#D4A017]/12 text-[#F9D77A] font-bold border border-[#D4A017]/20">
             {fleetStatusCounts.Total} active motorcycles
           </span>
           {`. `}
-          {topBike && (
-            <>
-              {`The top-performing asset is the ${topBike.brand} ${topBike.model}. `}
-            </>
-          )}
-          {fleetStatusCounts.Maintenance > 0 && (
-            <>
-              <span className="inline-block px-1.5 py-0.5 mx-0.5 rounded-md bg-[#D4A017]/12 text-[#F9D77A] font-bold border border-[#D4A017]/20 shadow-sm shadow-[#D4A017]/10">
-                {fleetStatusCounts.Maintenance} vehicle(s)
-              </span>
-              {` are currently undergoing maintenance or inspection. `}
-            </>
-          )}
-          {unpaidCount > 0 && (
-            <>
-              <span className="inline-block px-1.5 py-0.5 mx-0.5 rounded-md bg-[#D4A017]/12 text-[#F9D77A] font-bold border border-[#D4A017]/20 shadow-sm shadow-[#D4A017]/10">
-                {unpaidCount} reservation(s)
-              </span>
-              {` require payment follow-up. `}
-            </>
-          )}
         </>
       );
     }
   }, [totalRevenue, netProfit, utilizationRes, fleetStatusCounts, topBikesByRevenue, filteredReservations, periodLabelText, language, currency]);
 
-  // CHART DATA GENERATION (10 Interactive Charts)
-  // Chart 1: Financial Performance Bar
+  // CHARTS DATA
   const chart1FinancialPerf = [
     { name: 'Revenue', amount: totalRevenue, fill: '#10B981' },
     { name: 'Operating Exp', amount: totalOperatingExpenses, fill: '#F43F5E' },
@@ -492,7 +405,6 @@ export const ExecutiveDashboard: React.FC<ExecutiveDashboardProps> = ({
     { name: 'Net Profit', amount: netProfit, fill: '#D4A017' },
   ];
 
-  // Chart 2: Fleet Status Donut
   const chart2FleetStatus = [
     { name: 'Available', value: fleetStatusCounts.Available, color: '#10B981' },
     { name: 'Reserved', value: fleetStatusCounts.Reserved, color: '#F59E0B' },
@@ -502,38 +414,24 @@ export const ExecutiveDashboard: React.FC<ExecutiveDashboardProps> = ({
     { name: 'Out of Service', value: fleetStatusCounts['Out of service'], color: '#6B7280' },
   ].filter((d) => d.value > 0);
 
-  // Chart 3: Revenue by Motorcycle
   const chart3RevenueByBike = bikeProfitabilityList
-    .map((bp) => ({
-      name: `${bp.motorcycle.brand} ${bp.motorcycle.model}`,
-      revenue: bp.revenue,
-    }))
+    .map((bp) => ({ name: `${bp.motorcycle.brand} ${bp.motorcycle.model}`, revenue: bp.revenue }))
     .sort((a, b) => b.revenue - a.revenue);
 
-  // Chart 4: Profit by Motorcycle
   const chart4ProfitByBike = bikeProfitabilityList
-    .map((bp) => ({
-      name: `${bp.motorcycle.brand} ${bp.motorcycle.model}`,
-      profit: bp.netProfit,
-    }))
+    .map((bp) => ({ name: `${bp.motorcycle.brand} ${bp.motorcycle.model}`, profit: bp.netProfit }))
     .sort((a, b) => b.profit - a.profit);
 
-  // Chart 5: ROI by Motorcycle
   const chart5ROIByBike = bikeProfitabilityList
-    .map((bp) => ({
-      name: `${bp.motorcycle.brand} ${bp.motorcycle.model}`,
-      roi: bp.roi,
-    }))
+    .map((bp) => ({ name: `${bp.motorcycle.brand} ${bp.motorcycle.model}`, roi: bp.roi }))
     .sort((a, b) => b.roi - a.roi);
 
-  // Chart 6: Investment vs Book Value vs Estimated Market Value
   const chart6CapValuation = [
     { name: 'Total Investment', value: fleetKPIs.totalInvestment, fill: '#3B82F6' },
     { name: 'Book Value', value: fleetKPIs.currentBookValue, fill: '#10B981' },
     { name: 'Est Market Value', value: fleetKPIs.estimatedMarketValue, fill: '#D4A017' },
   ];
 
-  // Chart 7: Depreciation & Book Value Over Time (Monthly curve)
   const chart7DeprTrend = [
     { month: 'Month 0', bookValue: fleetKPIs.totalInvestment, accDepr: 0 },
     { month: 'Month 12', bookValue: fleetKPIs.totalInvestment - fleetKPIs.annualFleetDepreciation, accDepr: fleetKPIs.annualFleetDepreciation },
@@ -543,7 +441,6 @@ export const ExecutiveDashboard: React.FC<ExecutiveDashboardProps> = ({
     { month: 'Month 60', bookValue: fleetKPIs.currentBookValue, accDepr: fleetKPIs.accumulatedDepreciation },
   ];
 
-  // Chart 8: Revenue Trend (Monthly Line)
   const chart8MonthlyRevTrend = [
     { month: 'Jan', revenue: 68000, exp: 24000, profit: 44000 },
     { month: 'Feb', revenue: 75000, exp: 28000, profit: 47000 },
@@ -555,19 +452,6 @@ export const ExecutiveDashboard: React.FC<ExecutiveDashboardProps> = ({
     { month: 'Aug', revenue: totalRevenue || 142000, exp: totalOperatingExpenses || 52000, profit: netProfit || 90000 },
   ];
 
-  // Chart 10: Utilization Trend
-  const chart10UtilizationTrend = [
-    { month: 'Jan', rate: 55 },
-    { month: 'Feb', rate: 62 },
-    { month: 'Mar', rate: 71 },
-    { month: 'Apr', rate: 68 },
-    { month: 'May', rate: 78 },
-    { month: 'Jun', rate: 82 },
-    { month: 'Jul', rate: 88 },
-    { month: 'Aug', rate: utilizationRes.utilizationRate || 74 },
-  ];
-
-  // Drill Down Helper
   const openDrillDown = (
     title: string,
     description: string,
@@ -575,7 +459,6 @@ export const ExecutiveDashboard: React.FC<ExecutiveDashboardProps> = ({
     type: 'revenue' | 'expense' | 'motorcycles' | 'reservations' | 'depreciation' | 'investments'
   ) => {
     let items: any[] = [];
-
     if (type === 'revenue') {
       items = filteredRevenues.map((r) => ({
         id: r.id,
@@ -676,9 +559,7 @@ export const ExecutiveDashboard: React.FC<ExecutiveDashboardProps> = ({
         />
       </div>
 
-      {/* ---------------------------------------------------- */}
-      {/* 1. TOP HEADER & FILTER CONTROL BAR                   */}
-      {/* ---------------------------------------------------- */}
+      {/* 1. TOP HEADER & FILTER CONTROL BAR */}
       <div className="p-5 rounded-2xl bg-[#181818] border border-[#2D2D2D] shadow-xl flex flex-col lg:flex-row items-start lg:items-center justify-between gap-4">
         <div>
           <div className="flex items-center gap-2">
@@ -694,14 +575,12 @@ export const ExecutiveDashboard: React.FC<ExecutiveDashboardProps> = ({
           </p>
         </div>
 
-        {/* Global Filter Bar */}
         <div className="flex flex-wrap items-center gap-2.5 w-full lg:w-auto">
           <div className="flex items-center bg-[#111111] border border-[#333333] rounded-xl px-3 py-1.5 text-xs text-zinc-300">
             <Calendar className="w-3.5 h-3.5 text-[#D4A017] mr-2" />
-            <span className="font-semibold text-white">{selectedRange === 'custom' ? `${customStartDate} → ${customEndDate}` : selectedRange}</span>
+            <span className="font-semibold text-white">{selectedRange === 'custom' ? `${customStartDate} → ${customEndDate}` : selectedRange.replace('_', ' ')}</span>
           </div>
 
-          {/* Motorcycle Filter */}
           <div className="flex items-center bg-[#111111] border border-[#333333] rounded-xl px-3 py-1.5 text-xs">
             <Bike className="w-3.5 h-3.5 text-zinc-400 mr-2" />
             <select
@@ -718,11 +597,9 @@ export const ExecutiveDashboard: React.FC<ExecutiveDashboardProps> = ({
             </select>
           </div>
 
-          {/* Action Tools Buttons */}
           <button
             onClick={() => setIsTargetsOpen(true)}
-            className="px-3 py-2 rounded-xl bg-[#222222] border border-[#333333] hover:border-[#D4A017] text-white font-bold text-xs transition-colors flex items-center gap-1.5"
-            title="Configure Targets & Thresholds"
+            className="px-3 py-2 rounded-xl bg-[#222222] border border-[#333333] hover:border-[#D4A017] text-white font-bold text-xs transition-colors flex items-center gap-1.5 cursor-pointer"
           >
             <Target className="w-3.5 h-3.5 text-[#D4A017]" />
             Targets
@@ -730,7 +607,7 @@ export const ExecutiveDashboard: React.FC<ExecutiveDashboardProps> = ({
 
           <button
             onClick={() => setIsSimulatorOpen(true)}
-            className="px-3.5 py-2 rounded-xl bg-[#D4A017] text-[#111111] hover:bg-[#e0ad24] font-bold text-xs transition-colors flex items-center gap-1.5 shadow-md shadow-[#D4A017]/20"
+            className="px-3.5 py-2 rounded-xl bg-[#D4A017] text-[#111111] hover:bg-[#e0ad24] font-bold text-xs transition-colors flex items-center gap-1.5 shadow-md shadow-[#D4A017]/20 cursor-pointer"
           >
             <Calculator className="w-3.5 h-3.5" />
             Simulator
@@ -738,9 +615,7 @@ export const ExecutiveDashboard: React.FC<ExecutiveDashboardProps> = ({
         </div>
       </div>
 
-      {/* ---------------------------------------------------- */}
-      {/* 2. DYNAMIC MANAGEMENT SUMMARY BANNER                */}
-      {/* ---------------------------------------------------- */}
+      {/* 2. DYNAMIC MANAGEMENT SUMMARY BANNER */}
       <div className={`p-4 rounded-2xl bg-gradient-to-r from-[#1C180E] via-[#1A1A1A] to-[#121212] border border-[#D4A017]/30 shadow-xl shadow-[#D4A017]/10 relative overflow-hidden ${isLoaded ? 'animate-fade-in-up animation-delay-100' : ''}`}>
         <div className="absolute top-0 right-0 w-64 h-full bg-[#D4A017]/8 rounded-full blur-2xl pointer-events-none" />
         <div className="flex items-start gap-3 relative z-10">
@@ -758,9 +633,7 @@ export const ExecutiveDashboard: React.FC<ExecutiveDashboardProps> = ({
         </div>
       </div>
 
-      {/* ---------------------------------------------------- */}
-      {/* 3. MANAGEMENT ALERTS & NOTIFICATIONS ticker          */}
-      {/* ---------------------------------------------------- */}
+      {/* 3. MANAGEMENT ALERTS */}
       {alerts.length > 0 && (
         <div className={`grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3 ${isLoaded ? 'animate-fade-in-up animation-delay-200' : ''}`}>
           {alerts.slice(0, 3).map((a) => {
@@ -781,7 +654,7 @@ export const ExecutiveDashboard: React.FC<ExecutiveDashboardProps> = ({
               <div
                 key={a.id}
                 onClick={() => a.tab && onNavigate(a.tab)}
-                className={`p-3.5 rounded-xl border flex items-start gap-3 cursor-pointer transition-all hover:-translate-y-0.5 hover:brightness-110 premium-spotlight-card ${severityClass}`}
+                className={`p-3.5 rounded-xl border flex items-start gap-3 cursor-pointer transition-all hover:-translate-y-0.5 hover:brightness-110 ${severityClass}`}
               >
                 <div className="flex items-start gap-2 w-full min-w-0">
                   <AlertTriangle className="w-4 h-4 shrink-0 mt-0.5" />
@@ -802,21 +675,11 @@ export const ExecutiveDashboard: React.FC<ExecutiveDashboardProps> = ({
         </div>
       )}
 
-      {/* ---------------------------------------------------- */}
-      {/* 4. PRIMARY EXECUTIVE KPI CARDS GRID (Clickable)      */}
-      {/* ---------------------------------------------------- */}
+      {/* 4. PRIMARY EXECUTIVE KPI CARDS GRID */}
       <div className={`grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 ${isLoaded ? 'animate-fade-in-up animation-delay-300' : ''}`}>
-        {/* Total Fleet Investment */}
         <div
-          onClick={() =>
-            openDrillDown(
-              'Total Fleet Capital Investment',
-              'Initial acquisition costs and capitalized equipment per motorcycle asset.',
-              fleetKPIs.totalInvestment,
-              'motorcycles'
-            )
-          }
-          className="p-5 bg-[#1C1C1C] rounded-xl border border-zinc-800 transition-all duration-300 ease-out cursor-pointer group shadow-xl relative overflow-hidden hover:scale-[1.02] hover:border-zinc-700/80 hover:shadow-2xl hover:shadow-black/50 premium-spotlight-card"
+          onClick={() => openDrillDown('Total Fleet Capital Investment', 'Initial acquisition costs per motorcycle asset.', fleetKPIs.totalInvestment, 'motorcycles')}
+          className="p-5 bg-[#1C1C1C] rounded-xl border border-zinc-800 transition-all duration-300 ease-out cursor-pointer group shadow-xl hover:scale-[1.02] hover:border-zinc-700/80"
         >
           <div className="flex items-center justify-between mb-2">
             <span className="text-zinc-400 text-xs font-bold uppercase tracking-wider">Total Fleet Investment</span>
@@ -833,17 +696,9 @@ export const ExecutiveDashboard: React.FC<ExecutiveDashboardProps> = ({
           </div>
         </div>
 
-        {/* Accounting Book Value vs Estimated Market Value */}
         <div
-          onClick={() =>
-            openDrillDown(
-              'Current Accounting Book Value',
-              'Straight-line residual value after accounting accumulated depreciation.',
-              fleetKPIs.currentBookValue,
-              'depreciation'
-            )
-          }
-          className="p-5 bg-[#1C1C1C] rounded-xl border border-zinc-800 transition-all duration-300 ease-out cursor-pointer group shadow-xl hover:scale-[1.02] hover:border-zinc-700/80 hover:shadow-2xl hover:shadow-black/50 premium-spotlight-card"
+          onClick={() => openDrillDown('Current Accounting Book Value', 'Straight-line residual value after accumulated depreciation.', fleetKPIs.currentBookValue, 'depreciation')}
+          className="p-5 bg-[#1C1C1C] rounded-xl border border-zinc-800 transition-all duration-300 ease-out cursor-pointer group shadow-xl hover:scale-[1.02] hover:border-zinc-700/80"
         >
           <div className="flex items-center justify-between mb-2">
             <span className="text-zinc-400 text-xs font-bold uppercase tracking-wider">Current Book Value</span>
@@ -860,17 +715,9 @@ export const ExecutiveDashboard: React.FC<ExecutiveDashboardProps> = ({
           </div>
         </div>
 
-        {/* Accumulated Depreciation */}
         <div
-          onClick={() =>
-            openDrillDown(
-              'Accumulated Depreciation',
-              'Total amortized depreciation recorded across all motorcycles since acquisition.',
-              fleetKPIs.accumulatedDepreciation,
-              'depreciation'
-            )
-          }
-          className="p-5 bg-[#1C1C1C] rounded-xl border border-zinc-800 transition-all duration-300 ease-out cursor-pointer group shadow-xl hover:scale-[1.02] hover:border-zinc-700/80 hover:shadow-2xl hover:shadow-black/50 premium-spotlight-card"
+          onClick={() => openDrillDown('Accumulated Depreciation', 'Total amortized depreciation recorded across all motorcycles.', fleetKPIs.accumulatedDepreciation, 'depreciation')}
+          className="p-5 bg-[#1C1C1C] rounded-xl border border-zinc-800 transition-all duration-300 ease-out cursor-pointer group shadow-xl hover:scale-[1.02] hover:border-zinc-700/80"
         >
           <div className="flex items-center justify-between mb-2">
             <span className="text-zinc-400 text-xs font-bold uppercase tracking-wider">Accumulated Depreciation</span>
@@ -887,17 +734,9 @@ export const ExecutiveDashboard: React.FC<ExecutiveDashboardProps> = ({
           </div>
         </div>
 
-        {/* Net Profit & Margin */}
         <div
-          onClick={() =>
-            openDrillDown(
-              'Net Profit Ledger',
-              `Total Revenue (${formatCurrency(totalRevenue, currency)}) minus Operating Expenses (${formatCurrency(totalOperatingExpenses, currency)}) minus Depreciation (${formatCurrency(totalDepreciationForPeriod, currency)}).`,
-              netProfit,
-              'revenue'
-            )
-          }
-          className="p-5 bg-[#1C1C1C] rounded-xl border border-zinc-800 transition-all duration-300 ease-out cursor-pointer group shadow-xl hover:scale-[1.02] hover:border-zinc-700/80 hover:shadow-2xl hover:shadow-black/50 shadow-[#D4A017]/5 premium-spotlight-card"
+          onClick={() => openDrillDown('Net Profit Ledger', `Net Profit for period ${periodLabelText}.`, netProfit, 'revenue')}
+          className="p-5 bg-[#1C1C1C] rounded-xl border border-zinc-800 transition-all duration-300 ease-out cursor-pointer group shadow-xl hover:scale-[1.02] hover:border-zinc-700/80 shadow-[#D4A017]/5"
         >
           <div className="flex items-center justify-between mb-2">
             <span className="text-zinc-400 text-xs font-bold uppercase tracking-wider">Net Profit</span>
@@ -914,17 +753,9 @@ export const ExecutiveDashboard: React.FC<ExecutiveDashboardProps> = ({
           </div>
         </div>
 
-        {/* Total Revenue */}
         <div
-          onClick={() =>
-            openDrillDown(
-              'Total Revenue Transactions',
-              'Itemized breakdown of rental, tour, equipment, delivery, damage, and other revenues.',
-              totalRevenue,
-              'revenue'
-            )
-          }
-          className="p-5 bg-[#1C1C1C] rounded-xl border border-zinc-800 transition-all duration-300 ease-out cursor-pointer group shadow-xl hover:scale-[1.02] hover:border-zinc-700/80 hover:shadow-2xl hover:shadow-black/50 shadow-[#D4A017]/5 premium-spotlight-card"
+          onClick={() => openDrillDown('Total Revenue Transactions', 'Itemized breakdown of rental, tour, and equipment revenues.', totalRevenue, 'revenue')}
+          className="p-5 bg-[#1C1C1C] rounded-xl border border-zinc-800 transition-all duration-300 ease-out cursor-pointer group shadow-xl hover:scale-[1.02] hover:border-zinc-700/80 shadow-[#D4A017]/5"
         >
           <div className="flex items-center justify-between mb-2">
             <span className="text-zinc-400 text-xs font-bold uppercase tracking-wider">Total Revenue</span>
@@ -941,17 +772,9 @@ export const ExecutiveDashboard: React.FC<ExecutiveDashboardProps> = ({
           </div>
         </div>
 
-        {/* Total Operating Expenses */}
         <div
-          onClick={() =>
-            openDrillDown(
-              'Total Operating Expenses',
-              'Itemized breakdown of maintenance, fuel, insurance, salaries, marketing, and logistics.',
-              totalOperatingExpenses,
-              'expense'
-            )
-          }
-          className="p-5 bg-[#1C1C1C] rounded-xl border border-zinc-800 transition-all duration-300 ease-out cursor-pointer group shadow-xl hover:scale-[1.02] hover:border-zinc-700/80 hover:shadow-2xl hover:shadow-black/50 premium-spotlight-card"
+          onClick={() => openDrillDown('Total Operating Expenses', 'Itemized breakdown of maintenance, fuel, insurance.', totalOperatingExpenses, 'expense')}
+          className="p-5 bg-[#1C1C1C] rounded-xl border border-zinc-800 transition-all duration-300 ease-out cursor-pointer group shadow-xl hover:scale-[1.02] hover:border-zinc-700/80"
         >
           <div className="flex items-center justify-between mb-2">
             <span className="text-zinc-400 text-xs font-bold uppercase tracking-wider">Operating Expenses</span>
@@ -968,17 +791,9 @@ export const ExecutiveDashboard: React.FC<ExecutiveDashboardProps> = ({
           </div>
         </div>
 
-        {/* Fleet Utilization Rate */}
         <div
-          onClick={() =>
-            openDrillDown(
-              'Fleet Utilization Ledger',
-              `Actual Rental Days (${utilizationRes.totalActualDays}) / Available Days (${utilizationRes.totalAvailableDays}) for ${daysInPeriod} days in period.`,
-              utilizationRes.utilizationRate,
-              'reservations'
-            )
-          }
-          className="p-5 bg-[#1C1C1C] rounded-xl border border-zinc-800 transition-all duration-300 ease-out cursor-pointer group shadow-xl hover:scale-[1.02] hover:border-zinc-700/80 hover:shadow-2xl hover:shadow-black/50 premium-spotlight-card"
+          onClick={() => openDrillDown('Fleet Utilization Ledger', 'Actual Rental Days / Available Days in period.', utilizationRes.utilizationRate, 'reservations')}
+          className="p-5 bg-[#1C1C1C] rounded-xl border border-zinc-800 transition-all duration-300 ease-out cursor-pointer group shadow-xl hover:scale-[1.02] hover:border-zinc-700/80"
         >
           <div className="flex items-center justify-between mb-2">
             <span className="text-zinc-400 text-xs font-bold uppercase tracking-wider">Fleet Utilization</span>
@@ -995,17 +810,9 @@ export const ExecutiveDashboard: React.FC<ExecutiveDashboardProps> = ({
           </div>
         </div>
 
-        {/* Avg Revenue / Rental Day */}
         <div
-          onClick={() =>
-            openDrillDown(
-              'Rental Day Performance',
-              `Total Rental Revenue (${formatCurrency(revBreakdown.Rental, currency)}) divided by ${totalRentalDays} total active rental days.`,
-              avgRevenuePerRentalDay,
-              'reservations'
-            )
-          }
-          className="p-5 bg-[#1C1C1C] rounded-xl border border-zinc-800 transition-all duration-300 ease-out cursor-pointer group shadow-xl hover:scale-[1.02] hover:border-zinc-700/80 hover:shadow-2xl hover:shadow-black/50 shadow-[#D4A017]/5 premium-spotlight-card"
+          onClick={() => openDrillDown('Rental Day Performance', 'Total Rental Revenue divided by total active rental days.', avgRevenuePerRentalDay, 'reservations')}
+          className="p-5 bg-[#1C1C1C] rounded-xl border border-zinc-800 transition-all duration-300 ease-out cursor-pointer group shadow-xl hover:scale-[1.02] hover:border-zinc-700/80 shadow-[#D4A017]/5"
         >
           <div className="flex items-center justify-between mb-2">
             <span className="text-zinc-400 text-xs font-bold uppercase tracking-wider">Avg Rev / Rental Day</span>
@@ -1023,35 +830,26 @@ export const ExecutiveDashboard: React.FC<ExecutiveDashboardProps> = ({
         </div>
       </div>
 
-      {/* ---------------------------------------------------- */}
-      {/* 5. MANAGEMENT TARGETS VS ACTUAL PROGRESS             */}
-      {/* ---------------------------------------------------- */}
-      <div className={`p-6 bg-[#1C1C1C] rounded-xl border border-zinc-800 shadow-xl space-y-4 premium-spotlight-card ${isLoaded ? 'animate-fade-in-up animation-delay-300' : ''}`}>
+      {/* 5. MANAGEMENT TARGETS VS ACTUAL */}
+      <div className={`p-6 bg-[#1C1C1C] rounded-xl border border-zinc-800 shadow-xl space-y-4 ${isLoaded ? 'animate-fade-in-up animation-delay-300' : ''}`}>
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-2">
             <Target className="w-5 h-5 text-[#D4A017]" />
             <h3 className="text-base font-bold text-white">Management Benchmarks vs Actual Performance</h3>
           </div>
-          <button
-            onClick={() => setIsTargetsOpen(true)}
-            className="text-xs text-[#D4A017] hover:underline font-bold"
-          >
+          <button onClick={() => setIsTargetsOpen(true)} className="text-xs text-[#D4A017] hover:underline font-bold cursor-pointer">
             Edit Configured Targets
           </button>
         </div>
 
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 text-xs font-mono">
-          {/* Monthly Revenue Target */}
           <div className="p-4 bg-[#1C1C1C] rounded-xl border border-zinc-800 space-y-2.5">
             <div className="flex justify-between items-center text-zinc-400">
               <span>Monthly Revenue Target</span>
               <span className="font-bold text-[#D4A017]">{calculateTargetAchievement(totalRevenue, targets.monthlyRevenueTarget)}%</span>
             </div>
             <div className="w-full bg-[#2D2D2D] h-2 rounded-full overflow-hidden">
-              <div
-                className="h-full rounded-full bg-[#D4A017] bar-transition"
-                style={{ width: `${Math.min(100, calculateTargetAchievement(totalRevenue, targets.monthlyRevenueTarget))}%` }}
-              />
+              <div className="h-full rounded-full bg-[#D4A017]" style={{ width: `${Math.min(100, calculateTargetAchievement(totalRevenue, targets.monthlyRevenueTarget))}%` }} />
             </div>
             <div className="flex justify-between text-[11px] pt-1">
               <span className="text-gray-300 font-semibold">Actual: {formatCurrency(totalRevenue, currency)}</span>
@@ -1059,19 +857,13 @@ export const ExecutiveDashboard: React.FC<ExecutiveDashboardProps> = ({
             </div>
           </div>
 
-          {/* Fleet Utilization Target */}
           <div className="p-4 bg-[#1C1C1C] rounded-xl border border-zinc-800 space-y-2.5">
             <div className="flex justify-between items-center text-zinc-400">
               <span>Utilization Target</span>
               <span className="font-bold text-emerald-500">{calculateTargetAchievement(utilizationRes.utilizationRate, targets.fleetUtilizationTarget)}%</span>
             </div>
             <div className="w-full bg-[#2D2D2D] h-2 rounded-full overflow-hidden">
-              <div
-                className={`h-full rounded-full bar-transition ${
-                  calculateTargetAchievement(utilizationRes.utilizationRate, targets.fleetUtilizationTarget) < 70 ? 'bg-rose-600' : 'bg-emerald-600'
-                }`}
-                style={{ width: `${Math.min(100, calculateTargetAchievement(utilizationRes.utilizationRate, targets.fleetUtilizationTarget))}%` }}
-              />
+              <div className={`h-full rounded-full ${calculateTargetAchievement(utilizationRes.utilizationRate, targets.fleetUtilizationTarget) < 70 ? 'bg-rose-600' : 'bg-emerald-600'}`} style={{ width: `${Math.min(100, calculateTargetAchievement(utilizationRes.utilizationRate, targets.fleetUtilizationTarget))}%` }} />
             </div>
             <div className="flex justify-between text-[11px] pt-1">
               <span className="text-gray-300 font-semibold">Actual: {utilizationRes.utilizationRate}%</span>
@@ -1079,17 +871,13 @@ export const ExecutiveDashboard: React.FC<ExecutiveDashboardProps> = ({
             </div>
           </div>
 
-          {/* Profit Margin Target */}
           <div className="p-4 bg-[#1C1C1C] rounded-xl border border-zinc-800 space-y-2.5">
             <div className="flex justify-between items-center text-zinc-400">
               <span>Profit Margin Target</span>
               <span className="font-bold text-[#D4A017]">{calculateTargetAchievement(profitMargin, targets.profitMarginTarget)}%</span>
             </div>
             <div className="w-full bg-[#2D2D2D] h-2 rounded-full overflow-hidden">
-              <div
-                className="h-full rounded-full bg-[#D4A017] bar-transition"
-                style={{ width: `${Math.min(100, calculateTargetAchievement(profitMargin, targets.profitMarginTarget))}%` }}
-              />
+              <div className="h-full rounded-full bg-[#D4A017]" style={{ width: `${Math.min(100, calculateTargetAchievement(profitMargin, targets.profitMarginTarget))}%` }} />
             </div>
             <div className="flex justify-between text-[11px] pt-1">
               <span className="text-gray-300 font-semibold">Actual: {profitMargin.toFixed(1)}%</span>
@@ -1097,17 +885,13 @@ export const ExecutiveDashboard: React.FC<ExecutiveDashboardProps> = ({
             </div>
           </div>
 
-          {/* Investment Recovery */}
           <div className="p-4 bg-[#1C1C1C] rounded-xl border border-zinc-800 space-y-2.5">
             <div className="flex justify-between items-center text-zinc-400">
               <span>Fleet Investment Recovery</span>
               <span className="font-bold text-emerald-500">{investmentRecoveryPercent.toFixed(1)}%</span>
             </div>
             <div className="w-full bg-[#2D2D2D] h-2 rounded-full overflow-hidden">
-              <div
-                className="h-full rounded-full bg-emerald-600 bar-transition"
-                style={{ width: `${Math.min(100, investmentRecoveryPercent)}%` }}
-              />
+              <div className="h-full rounded-full bg-emerald-600" style={{ width: `${Math.min(100, investmentRecoveryPercent)}%` }} />
             </div>
             <div className="flex justify-between text-[11px] pt-1">
               <span className="text-gray-300 font-semibold">Actual: {formatCurrency(totalRevenue, currency)}</span>
@@ -1117,9 +901,7 @@ export const ExecutiveDashboard: React.FC<ExecutiveDashboardProps> = ({
         </div>
       </div>
 
-      {/* ---------------------------------------------------- */}
       {/* 6. MOTORCYCLE PROFITABILITY & DECISION ENGINE MATRIX */}
-      {/* ---------------------------------------------------- */}
       <div className="p-6 bg-[#1C1C1C] rounded-xl border border-zinc-800 shadow-xl space-y-4">
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
           <div>
@@ -1133,11 +915,7 @@ export const ExecutiveDashboard: React.FC<ExecutiveDashboardProps> = ({
               Automated asset recommendation based on ROI % threshold rules (&gt;{targets.keepRoiThreshold}% KEEP, &lt;{targets.sellRoiThreshold}% SELL).
             </p>
           </div>
-
-          <button
-            onClick={() => onNavigate('fleet')}
-            className="text-xs text-[#D4A017] hover:underline font-bold self-start sm:self-auto"
-          >
+          <button onClick={() => onNavigate('fleet')} className="text-xs text-[#D4A017] hover:underline font-bold cursor-pointer">
             Manage Fleet Assets &rarr;
           </button>
         </div>
@@ -1159,34 +937,27 @@ export const ExecutiveDashboard: React.FC<ExecutiveDashboardProps> = ({
               </tr>
             </thead>
             <tbody className="divide-y divide-zinc-800/50 font-mono text-gray-300">
-              {bikeProfitabilityList.map(({ motorcycle, revenue, operatingCosts, depreciation, netProfit, roi, decision, depreciationStatus }) => (
+              {bikeProfitabilityList.map(({ motorcycle, revenue, operatingCosts, depreciation, netProfit, roi, decision }) => (
                 <tr key={motorcycle.id} className="hover:bg-white/5 transition-colors border-b border-zinc-800/50">
                   <td className="p-4 font-sans">
-                    <div className="font-bold text-white text-sm">
-                      {motorcycle.brand} {motorcycle.model}
-                    </div>
+                    <div className="font-bold text-white text-sm">{motorcycle.brand} {motorcycle.model}</div>
                     <div className="text-[11px] text-zinc-500">Reg: {motorcycle.registrationNumber}</div>
                   </td>
-
                   <td className="p-4">
                     <span className="px-2 py-0.5 rounded text-[10px] font-sans font-bold uppercase bg-zinc-800/50 text-zinc-400 border border-zinc-700/50">
                       {motorcycle.currentStatus}
                     </span>
                   </td>
-
                   <td className="p-4">{formatCurrency(motorcycle.purchasePrice, currency)}</td>
                   <td className="p-4 text-emerald-400/90 font-bold">{formatCurrency(revenue, currency)}</td>
                   <td className="p-4 text-rose-400/80">{formatCurrency(operatingCosts, currency)}</td>
                   <td className="p-4 text-amber-400/80">{formatCurrency(depreciation, currency)}</td>
-
                   <td className={`p-4 font-bold ${netProfit >= 0 ? 'text-[#D4A017]' : 'text-rose-400'}`}>
                     {formatCurrency(netProfit, currency)}
                   </td>
-
                   <td className={`p-4 font-extrabold ${roi >= 25 ? 'text-emerald-400' : roi >= 0 ? 'text-amber-400' : 'text-rose-400'}`}>
                     {roi}%
                   </td>
-
                   <td className="p-4 text-sky-400/80">
                     {editingMarketValueId === motorcycle.id ? (
                       <div className="flex items-center gap-1">
@@ -1196,10 +967,7 @@ export const ExecutiveDashboard: React.FC<ExecutiveDashboardProps> = ({
                           onChange={(e) => setTempMarketVal(Number(e.target.value))}
                           className="w-20 bg-[#111111] border border-[#D4A017] px-1 py-0.5 rounded text-xs text-white"
                         />
-                        <button
-                          onClick={() => handleSaveMarketValue(motorcycle.id)}
-                          className="text-xs bg-[#D4A017] text-black px-1.5 py-0.5 rounded font-sans font-bold"
-                        >
+                        <button onClick={() => handleSaveMarketValue(motorcycle.id)} className="text-xs bg-[#D4A017] text-black px-1.5 py-0.5 rounded font-sans font-bold cursor-pointer">
                           Save
                         </button>
                       </div>
@@ -1210,23 +978,17 @@ export const ExecutiveDashboard: React.FC<ExecutiveDashboardProps> = ({
                           setTempMarketVal(motorcycle.estimatedMarketValue || motorcycle.purchasePrice * 0.8);
                         }}
                         className="cursor-pointer hover:underline flex items-center gap-1 text-[11px]"
-                        title="Click to edit market value"
                       >
                         {formatCurrency(motorcycle.estimatedMarketValue || motorcycle.purchasePrice * 0.8, currency)}
                       </div>
                     )}
                   </td>
-
                   <td className="p-4 text-center font-sans">
-                    <span
-                      className={`px-2 py-1 rounded-md text-xs font-medium tracking-wider uppercase inline-block border ${
-                        decision === 'KEEP'
-                          ? 'bg-emerald-500/10 text-emerald-400 border-emerald-500/20'
-                          : decision === 'MONITOR'
-                          ? 'bg-amber-500/10 text-amber-400 border-amber-500/20'
-                          : 'bg-rose-500/10 text-rose-400 border-rose-500/20'
-                      }`}
-                    >
+                    <span className={`px-2 py-1 rounded-md text-xs font-medium tracking-wider uppercase inline-block border ${
+                      decision === 'KEEP' ? 'bg-emerald-500/10 text-emerald-400 border-emerald-500/20' :
+                      decision === 'MONITOR' ? 'bg-amber-500/10 text-amber-400 border-amber-500/20' :
+                      'bg-rose-500/10 text-rose-400 border-rose-500/20'
+                    }`}>
                       {decision}
                     </span>
                   </td>
@@ -1237,16 +999,12 @@ export const ExecutiveDashboard: React.FC<ExecutiveDashboardProps> = ({
         </div>
       </div>
 
-      {/* ---------------------------------------------------- */}
-      {/* 7. INTERACTIVE FINANCIAL CHARTS GRID (10 Charts)     */}
-      {/* ---------------------------------------------------- */}
+      {/* 7. INTERACTIVE FINANCIAL CHARTS GRID */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        {/* Chart 1: Financial Performance Bar */}
         <div className="p-5 rounded-2xl bg-[#181818] border border-[#2D2D2D] shadow-xl space-y-3">
           <div className="flex items-center justify-between">
             <h4 className="text-xs font-bold uppercase tracking-wider text-[#D4A017] flex items-center gap-2">
-              <BarChart3 className="w-4 h-4" />
-              1. Financial Performance Breakdown
+              <BarChart3 className="w-4 h-4" /> 1. Financial Performance Breakdown
             </h4>
             <span className="text-[11px] text-zinc-400 font-mono">{periodLabelText}</span>
           </div>
@@ -1256,10 +1014,7 @@ export const ExecutiveDashboard: React.FC<ExecutiveDashboardProps> = ({
                 <CartesianGrid strokeDasharray="3 3" stroke="#2A2A2A" />
                 <XAxis dataKey="name" stroke="#888888" tick={{ fontSize: 11 }} />
                 <YAxis stroke="#888888" tick={{ fontSize: 11 }} />
-                <Tooltip
-                  contentStyle={{ backgroundColor: '#1A1A1A', borderColor: '#333', color: '#fff', fontSize: '12px' }}
-                  formatter={(val: any) => [formatCurrency(Number(val), currency), 'Amount']}
-                />
+                <Tooltip contentStyle={{ backgroundColor: '#1A1A1A', borderColor: '#333', color: '#fff', fontSize: '12px' }} formatter={(val: any) => [formatCurrency(Number(val), currency), 'Amount']} />
                 <Bar dataKey="amount" radius={[6, 6, 0, 0]}>
                   {chart1FinancialPerf.map((entry, index) => (
                     <Cell key={`cell-${index}`} fill={entry.fill} />
@@ -1270,119 +1025,82 @@ export const ExecutiveDashboard: React.FC<ExecutiveDashboardProps> = ({
           </div>
         </div>
 
-        {/* Chart 2: Fleet Status Donut */}
         <div className="p-5 rounded-2xl bg-[#181818] border border-[#2D2D2D] shadow-xl space-y-3">
           <div className="flex items-center justify-between">
             <h4 className="text-xs font-bold uppercase tracking-wider text-[#D4A017] flex items-center gap-2">
-              <PieIcon className="w-4 h-4" />
-              2. Fleet Status Distribution
+              <PieIcon className="w-4 h-4" /> 2. Fleet Status Distribution
             </h4>
             <span className="text-[11px] text-zinc-400 font-mono">Total {fleetStatusCounts.Total} Bikes</span>
           </div>
           <div className="h-64 w-full flex items-center justify-center">
             <ResponsiveContainer width="100%" height="100%">
               <PieChart>
-                <Pie
-                  data={chart2FleetStatus}
-                  dataKey="value"
-                  nameKey="name"
-                  cx="50%"
-                  cy="50%"
-                  innerRadius={60}
-                  outerRadius={85}
-                  paddingAngle={5}
-                >
+                <Pie data={chart2FleetStatus} dataKey="value" nameKey="name" cx="50%" cy="50%" innerRadius={60} outerRadius={85} paddingAngle={5}>
                   {chart2FleetStatus.map((entry, index) => (
                     <Cell key={`cell-pie-${index}`} fill={entry.color} />
                   ))}
                 </Pie>
-                <Tooltip
-                  contentStyle={{ backgroundColor: '#1A1A1A', borderColor: '#333', color: '#fff', fontSize: '12px' }}
-                />
+                <Tooltip contentStyle={{ backgroundColor: '#1A1A1A', borderColor: '#333', color: '#fff', fontSize: '12px' }} />
                 <Legend wrapperStyle={{ fontSize: '11px', color: '#ccc' }} />
               </PieChart>
             </ResponsiveContainer>
           </div>
         </div>
 
-        {/* Chart 3: Revenue by Motorcycle */}
         <div className="p-5 rounded-2xl bg-[#181818] border border-[#2D2D2D] shadow-xl space-y-3">
-          <h4 className="text-xs font-bold uppercase tracking-wider text-[#D4A017]">
-            3. Revenue Generated by Motorcycle
-          </h4>
+          <h4 className="text-xs font-bold uppercase tracking-wider text-[#D4A017]">3. Revenue Generated by Motorcycle</h4>
           <div className="h-64 w-full">
             <ResponsiveContainer width="100%" height="100%">
               <BarChart data={chart3RevenueByBike} layout="vertical">
                 <CartesianGrid strokeDasharray="3 3" stroke="#2A2A2A" />
                 <XAxis type="number" stroke="#888888" tick={{ fontSize: 10 }} />
                 <YAxis dataKey="name" type="category" stroke="#888888" tick={{ fontSize: 10 }} width={120} />
-                <Tooltip
-                  contentStyle={{ backgroundColor: '#1A1A1A', borderColor: '#333', color: '#fff', fontSize: '12px' }}
-                  formatter={(val: any) => [formatCurrency(Number(val), currency), 'Revenue']}
-                />
+                <Tooltip contentStyle={{ backgroundColor: '#1A1A1A', borderColor: '#333', color: '#fff', fontSize: '12px' }} formatter={(val: any) => [formatCurrency(Number(val), currency), 'Revenue']} />
                 <Bar dataKey="revenue" fill="#10B981" radius={[0, 4, 4, 0]} />
               </BarChart>
             </ResponsiveContainer>
           </div>
         </div>
 
-        {/* Chart 4: Profit by Motorcycle */}
         <div className="p-5 rounded-2xl bg-[#181818] border border-[#2D2D2D] shadow-xl space-y-3">
-          <h4 className="text-xs font-bold uppercase tracking-wider text-[#D4A017]">
-            4. Net Profit by Motorcycle
-          </h4>
+          <h4 className="text-xs font-bold uppercase tracking-wider text-[#D4A017]">4. Net Profit by Motorcycle</h4>
           <div className="h-64 w-full">
             <ResponsiveContainer width="100%" height="100%">
               <BarChart data={chart4ProfitByBike} layout="vertical">
                 <CartesianGrid strokeDasharray="3 3" stroke="#2A2A2A" />
                 <XAxis type="number" stroke="#888888" tick={{ fontSize: 10 }} />
                 <YAxis dataKey="name" type="category" stroke="#888888" tick={{ fontSize: 10 }} width={120} />
-                <Tooltip
-                  contentStyle={{ backgroundColor: '#1A1A1A', borderColor: '#333', color: '#fff', fontSize: '12px' }}
-                  formatter={(val: any) => [formatCurrency(Number(val), currency), 'Net Profit']}
-                />
+                <Tooltip contentStyle={{ backgroundColor: '#1A1A1A', borderColor: '#333', color: '#fff', fontSize: '12px' }} formatter={(val: any) => [formatCurrency(Number(val), currency), 'Net Profit']} />
                 <Bar dataKey="profit" fill="#D4A017" radius={[0, 4, 4, 0]} />
               </BarChart>
             </ResponsiveContainer>
           </div>
         </div>
 
-        {/* Chart 5: ROI by Motorcycle */}
         <div className="p-5 rounded-2xl bg-[#181818] border border-[#2D2D2D] shadow-xl space-y-3">
-          <h4 className="text-xs font-bold uppercase tracking-wider text-[#D4A017]">
-            5. Vehicle ROI % Leaderboard
-          </h4>
+          <h4 className="text-xs font-bold uppercase tracking-wider text-[#D4A017]">5. Vehicle ROI % Leaderboard</h4>
           <div className="h-64 w-full">
             <ResponsiveContainer width="100%" height="100%">
               <BarChart data={chart5ROIByBike}>
                 <CartesianGrid strokeDasharray="3 3" stroke="#2A2A2A" />
                 <XAxis dataKey="name" stroke="#888888" tick={{ fontSize: 9 }} interval={0} />
                 <YAxis stroke="#888888" tick={{ fontSize: 11 }} />
-                <Tooltip
-                  contentStyle={{ backgroundColor: '#1A1A1A', borderColor: '#333', color: '#fff', fontSize: '12px' }}
-                  formatter={(val: any) => [`${val}%`, 'ROI']}
-                />
+                <Tooltip contentStyle={{ backgroundColor: '#1A1A1A', borderColor: '#333', color: '#fff', fontSize: '12px' }} formatter={(val: any) => [`${val}%`, 'ROI']} />
                 <Bar dataKey="roi" fill="#3B82F6" radius={[4, 4, 0, 0]} />
               </BarChart>
             </ResponsiveContainer>
           </div>
         </div>
 
-        {/* Chart 6: Investment vs Book Value vs Estimated Market Value */}
         <div className="p-5 rounded-2xl bg-[#181818] border border-[#2D2D2D] shadow-xl space-y-3">
-          <h4 className="text-xs font-bold uppercase tracking-wider text-[#D4A017]">
-            6. Capital Valuation Comparison
-          </h4>
+          <h4 className="text-xs font-bold uppercase tracking-wider text-[#D4A017]">6. Capital Valuation Comparison</h4>
           <div className="h-64 w-full">
             <ResponsiveContainer width="100%" height="100%">
               <BarChart data={chart6CapValuation}>
                 <CartesianGrid strokeDasharray="3 3" stroke="#2A2A2A" />
                 <XAxis dataKey="name" stroke="#888888" tick={{ fontSize: 11 }} />
                 <YAxis stroke="#888888" tick={{ fontSize: 11 }} />
-                <Tooltip
-                  contentStyle={{ backgroundColor: '#1A1A1A', borderColor: '#333', color: '#fff', fontSize: '12px' }}
-                  formatter={(val: any) => [formatCurrency(Number(val), currency), 'Value']}
-                />
+                <Tooltip contentStyle={{ backgroundColor: '#1A1A1A', borderColor: '#333', color: '#fff', fontSize: '12px' }} formatter={(val: any) => [formatCurrency(Number(val), currency), 'Value']} />
                 <Bar dataKey="value" radius={[6, 6, 0, 0]}>
                   {chart6CapValuation.map((entry, index) => (
                     <Cell key={`cell-cap-${index}`} fill={entry.fill} />
@@ -1393,21 +1111,15 @@ export const ExecutiveDashboard: React.FC<ExecutiveDashboardProps> = ({
           </div>
         </div>
 
-        {/* Chart 7: Depreciation Curve Over Time */}
         <div className="p-5 rounded-2xl bg-[#181818] border border-[#2D2D2D] shadow-xl space-y-3">
-          <h4 className="text-xs font-bold uppercase tracking-wider text-[#D4A017]">
-            7. Fleet Amortization & Book Value Curve
-          </h4>
+          <h4 className="text-xs font-bold uppercase tracking-wider text-[#D4A017]">7. Fleet Amortization & Book Value Curve</h4>
           <div className="h-64 w-full">
             <ResponsiveContainer width="100%" height="100%">
               <AreaChart data={chart7DeprTrend}>
                 <CartesianGrid strokeDasharray="3 3" stroke="#2A2A2A" />
                 <XAxis dataKey="month" stroke="#888888" tick={{ fontSize: 11 }} />
                 <YAxis stroke="#888888" tick={{ fontSize: 11 }} />
-                <Tooltip
-                  contentStyle={{ backgroundColor: '#1A1A1A', borderColor: '#333', color: '#fff', fontSize: '12px' }}
-                  formatter={(val: any) => [formatCurrency(Number(val), currency), 'Value']}
-                />
+                <Tooltip contentStyle={{ backgroundColor: '#1A1A1A', borderColor: '#333', color: '#fff', fontSize: '12px' }} formatter={(val: any) => [formatCurrency(Number(val), currency), 'Value']} />
                 <Area type="monotone" dataKey="bookValue" stroke="#10B981" fill="#10B981" fillOpacity={0.15} name="Book Value" />
                 <Area type="monotone" dataKey="accDepr" stroke="#F59E0B" fill="#F59E0B" fillOpacity={0.15} name="Acc. Depreciation" />
               </AreaChart>
@@ -1415,21 +1127,15 @@ export const ExecutiveDashboard: React.FC<ExecutiveDashboardProps> = ({
           </div>
         </div>
 
-        {/* Chart 8 & 9: Monthly Revenue & Net Profit Trend */}
         <div className="p-5 rounded-2xl bg-[#181818] border border-[#2D2D2D] shadow-xl space-y-3">
-          <h4 className="text-xs font-bold uppercase tracking-wider text-[#D4A017]">
-            8 & 9. Monthly Revenue & Profit Trajectory
-          </h4>
+          <h4 className="text-xs font-bold uppercase tracking-wider text-[#D4A017]">8 & 9. Monthly Revenue & Profit Trajectory</h4>
           <div className="h-64 w-full">
             <ResponsiveContainer width="100%" height="100%">
               <AreaChart data={chart8MonthlyRevTrend}>
                 <CartesianGrid strokeDasharray="3 3" stroke="#2A2A2A" />
                 <XAxis dataKey="month" stroke="#888888" tick={{ fontSize: 11 }} />
                 <YAxis stroke="#888888" tick={{ fontSize: 11 }} />
-                <Tooltip
-                  contentStyle={{ backgroundColor: '#1A1A1A', borderColor: '#333', color: '#fff', fontSize: '12px' }}
-                  formatter={(val: any) => [formatCurrency(Number(val), currency), 'Amount']}
-                />
+                <Tooltip contentStyle={{ backgroundColor: '#1A1A1A', borderColor: '#333', color: '#fff', fontSize: '12px' }} formatter={(val: any) => [formatCurrency(Number(val), currency), 'Amount']} />
                 <Area type="monotone" dataKey="revenue" stroke="#10B981" fill="#10B981" fillOpacity={0.2} name="Revenue" />
                 <Area type="monotone" dataKey="profit" stroke="#D4A017" fill="#D4A017" fillOpacity={0.2} name="Net Profit" />
               </AreaChart>
@@ -1438,23 +1144,17 @@ export const ExecutiveDashboard: React.FC<ExecutiveDashboardProps> = ({
         </div>
       </div>
 
-      {/* ---------------------------------------------------- */}
-      {/* 8. TOP PERFORMERS & LEADERBOARDS                      */}
-      {/* ---------------------------------------------------- */}
+      {/* 8. TOP PERFORMERS & LEADERBOARDS */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-        {/* Top Motorcycles */}
         <div className="p-5 rounded-2xl bg-[#181818] border border-[#2D2D2D] shadow-xl space-y-3">
           <h4 className="text-xs font-bold uppercase tracking-wider text-[#D4A017] flex items-center gap-1.5">
-            <Award className="w-4 h-4" />
-            Top 5 Motorcycles by Revenue
+            <Award className="w-4 h-4" /> Top 5 Motorcycles by Revenue
           </h4>
           <div className="space-y-2 text-xs">
             {topBikesByRevenue.map(({ motorcycle, revenue, roi }, idx) => (
               <div key={motorcycle.id} className="p-2.5 rounded-xl bg-[#202020] border border-[#2D2D2D] flex items-center justify-between">
                 <div className="flex items-center gap-2">
-                  <span className="w-5 h-5 rounded-full bg-[#D4A017]/20 text-[#D4A017] font-bold text-[10px] flex items-center justify-center">
-                    #{idx + 1}
-                  </span>
+                  <span className="w-5 h-5 rounded-full bg-[#D4A017]/20 text-[#D4A017] font-bold text-[10px] flex items-center justify-center">#{idx + 1}</span>
                   <div>
                     <span className="font-bold text-white block">{motorcycle.brand} {motorcycle.model}</span>
                     <span className="text-[10px] text-zinc-400">ROI: {roi}%</span>
@@ -1466,11 +1166,9 @@ export const ExecutiveDashboard: React.FC<ExecutiveDashboardProps> = ({
           </div>
         </div>
 
-        {/* Top Agencies */}
         <div className="p-5 rounded-2xl bg-[#181818] border border-[#2D2D2D] shadow-xl space-y-3">
           <h4 className="text-xs font-bold uppercase tracking-wider text-[#D4A017] flex items-center gap-1.5">
-            <Users className="w-4 h-4" />
-            Top 5 Agencies by Revenue
+            <Users className="w-4 h-4" /> Top 5 Agencies by Revenue
           </h4>
           <div className="space-y-2 text-xs">
             {topAgencies.length === 0 ? (
@@ -1479,9 +1177,7 @@ export const ExecutiveDashboard: React.FC<ExecutiveDashboardProps> = ({
               topAgencies.map((agency, idx) => (
                 <div key={agency.id} className="p-2.5 rounded-xl bg-[#202020] border border-[#2D2D2D] flex items-center justify-between">
                   <div className="flex items-center gap-2">
-                    <span className="w-5 h-5 rounded-full bg-blue-500/20 text-blue-400 font-bold text-[10px] flex items-center justify-center">
-                      #{idx + 1}
-                    </span>
+                    <span className="w-5 h-5 rounded-full bg-blue-500/20 text-blue-400 font-bold text-[10px] flex items-center justify-center">#{idx + 1}</span>
                     <div>
                       <span className="font-bold text-white block">{agency.agencyName}</span>
                       <span className="text-[10px] text-zinc-400">{agency.country}</span>
@@ -1494,19 +1190,15 @@ export const ExecutiveDashboard: React.FC<ExecutiveDashboardProps> = ({
           </div>
         </div>
 
-        {/* Top Clients */}
         <div className="p-5 rounded-2xl bg-[#181818] border border-[#2D2D2D] shadow-xl space-y-3">
           <h4 className="text-xs font-bold uppercase tracking-wider text-[#D4A017] flex items-center gap-1.5">
-            <Compass className="w-4 h-4" />
-            Top 5 Clients by Spend
+            <Compass className="w-4 h-4" /> Top 5 Clients by Spend
           </h4>
           <div className="space-y-2 text-xs">
             {topClients.map((client, idx) => (
               <div key={client.id} className="p-2.5 rounded-xl bg-[#202020] border border-[#2D2D2D] flex items-center justify-between">
                 <div className="flex items-center gap-2">
-                  <span className="w-5 h-5 rounded-full bg-purple-500/20 text-purple-400 font-bold text-[10px] flex items-center justify-center">
-                    #{idx + 1}
-                  </span>
+                  <span className="w-5 h-5 rounded-full bg-purple-500/20 text-purple-400 font-bold text-[10px] flex items-center justify-center">#{idx + 1}</span>
                   <div>
                     <span className="font-bold text-white block">{client.fullName}</span>
                     <span className="text-[10px] text-zinc-400">{client.country}</span>
@@ -1519,9 +1211,7 @@ export const ExecutiveDashboard: React.FC<ExecutiveDashboardProps> = ({
         </div>
       </div>
 
-      {/* ---------------------------------------------------- */}
-      {/* 9. MODALS & DRILL DOWN POPUPS                         */}
-      {/* ---------------------------------------------------- */}
+      {/* 9. MODALS & DRILL DOWN POPUPS */}
       <DrillDownModal
         isOpen={drillDownState.isOpen}
         onClose={() => setDrillDownState((prev) => ({ ...prev, isOpen: false }))}

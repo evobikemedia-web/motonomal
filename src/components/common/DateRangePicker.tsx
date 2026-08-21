@@ -1,11 +1,13 @@
 import React, { useState, useMemo, useEffect } from 'react';
 import { ChevronLeft, ChevronRight } from 'lucide-react';
 import { useLanguage } from '../../context/LanguageContext';
+import { DateFilterRange } from '../../types';
 
 interface DateRangePickerProps {
   startDate: string;
   endDate: string;
   onChange: (range: { startDate: string; endDate: string }) => void;
+  onSelectPreset?: (rangeType: DateFilterRange) => void; // Optionnel pour gérer les préréglages
   className?: string;
 }
 
@@ -19,12 +21,6 @@ const sameDay = (a: Date, b: Date) =>
   a.getMonth() === b.getMonth() &&
   a.getDate() === b.getDate();
 const isBetween = (day: Date, start: Date, end: Date) => day > start && day < end;
-const monthsOverlap = (viewLeft: Date, viewRight: Date, target: Date) => {
-  const targetYM = target.getFullYear() * 12 + target.getMonth();
-  const leftYM = viewLeft.getFullYear() * 12 + viewLeft.getMonth();
-  const rightYM = viewRight.getFullYear() * 12 + viewRight.getMonth();
-  return targetYM >= leftYM && targetYM <= rightYM;
-};
 
 const getMonthAnchorFromDate = (dateValue: string) => {
   const base = dateValue ? parseISO(dateValue) : new Date();
@@ -90,6 +86,30 @@ export const DateRangePicker: React.FC<DateRangePickerProps> = ({
   const today = new Date();
   today.setHours(0, 0, 0, 0);
 
+  // Fonctions de raccourcis rapides (Aujourd'hui, Ce mois, etc.)
+  const handlePresetSelect = (type: 'today' | 'this_month' | 'last_30_days' | 'this_year') => {
+    const now = new Date();
+    let start = new Date();
+    let end = new Date();
+
+    if (type === 'today') {
+      start = now;
+      end = now;
+    } else if (type === 'this_month') {
+      start = new Date(now.getFullYear(), now.getMonth(), 1);
+      end = new Date(now.getFullYear(), now.getMonth() + 1, 0);
+    } else if (type === 'last_30_days') {
+      start = new Date();
+      start.setDate(now.getDate() - 30);
+      end = now;
+    } else if (type === 'this_year') {
+      start = new Date(now.getFullYear(), 0, 1);
+      end = new Date(now.getFullYear(), 11, 31);
+    }
+
+    onChange({ startDate: toISO(start), endDate: toISO(end) });
+  };
+
   const handleDayClick = (day: Date) => {
     if (selectionPhase === 'start' || !startD) {
       const iso = toISO(day);
@@ -134,35 +154,22 @@ export const DateRangePicker: React.FC<DateRangePickerProps> = ({
     const cells = generateMonthCells(anchor);
 
     return (
-      <div
-        style={{ width: 232 }}
-        className="shrink-0 flex flex-col"
-      >
+      <div style={{ width: 232 }} className="shrink-0 flex flex-col">
         <div className="flex items-center justify-center mb-3" style={{ height: 20 }}>
           <h3 className="text-gray-100 font-semibold text-xs tracking-wide">
             {monthNames[month]} {year}
           </h3>
         </div>
 
-        <div
-          className="grid mb-1"
-          style={{ gridTemplateColumns: 'repeat(7, 32px)', gridAutoRows: 32, columnGap: 4, rowGap: 4 }}
-        >
+        <div className="grid mb-1" style={{ gridTemplateColumns: 'repeat(7, 32px)', gridAutoRows: 32, columnGap: 4, rowGap: 4 }}>
           {weekdaysShort.map((w) => (
-            <div
-              key={w}
-              style={{ width: 32, height: 32 }}
-              className="text-gray-500 uppercase font-medium flex items-center justify-center"
-            >
+            <div key={w} style={{ width: 32, height: 32 }} className="text-gray-500 uppercase font-medium flex items-center justify-center">
               <span style={{ fontSize: 10 }}>{w}</span>
             </div>
           ))}
         </div>
 
-        <div
-          className="grid"
-          style={{ gridTemplateColumns: 'repeat(7, 32px)', gridAutoRows: 32, columnGap: 4, rowGap: 4 }}
-        >
+        <div className="grid" style={{ gridTemplateColumns: 'repeat(7, 32px)', gridAutoRows: 32, columnGap: 4, rowGap: 4 }}>
           {cells.map((day, idx) => {
             const inMonth = day.getMonth() === month;
             const isStart = startD && sameDay(day, startD);
@@ -223,24 +230,6 @@ export const DateRangePicker: React.FC<DateRangePickerProps> = ({
               );
             }
 
-            if (!inMonth) {
-              return (
-                <button
-                  key={idx}
-                  type="button"
-                  onClick={() => handleDayClick(day)}
-                  style={{
-                    ...baseStyle,
-                    backgroundColor: 'transparent',
-                    color: '#52525b',
-                  }}
-                  className="transition-colors hover:text-gray-400 hover:bg-white/5"
-                >
-                  {day.getDate()}
-                </button>
-              );
-            }
-
             return (
               <button
                 key={idx}
@@ -249,7 +238,7 @@ export const DateRangePicker: React.FC<DateRangePickerProps> = ({
                 style={{
                   ...baseStyle,
                   backgroundColor: 'transparent',
-                  color: '#d1d5db',
+                  color: inMonth ? '#d1d5db' : '#52525b',
                   boxShadow: isToday ? 'inset 0 0 0 1px rgba(255,255,255,0.2)' : undefined,
                 }}
                 className="transition-colors hover:bg-white/10"
@@ -276,6 +265,38 @@ export const DateRangePicker: React.FC<DateRangePickerProps> = ({
       }}
       className={className}
     >
+      {/* Barre de raccourcis professionnels (Aujourd'hui, Ce mois, etc.) */}
+      <div className="flex items-center gap-1.5 pb-3 mb-3 border-b border-white/10 text-xs">
+        <button
+          type="button"
+          onClick={() => handlePresetSelect('today')}
+          className="px-2.5 py-1 rounded-lg bg-white/5 hover:bg-white/10 text-zinc-300 hover:text-white transition-colors cursor-pointer font-medium"
+        >
+          {language === 'fr' ? "Aujourd'hui" : "Today"}
+        </button>
+        <button
+          type="button"
+          onClick={() => handlePresetSelect('this_month')}
+          className="px-2.5 py-1 rounded-lg bg-white/5 hover:bg-white/10 text-zinc-300 hover:text-white transition-colors cursor-pointer font-medium"
+        >
+          {language === 'fr' ? "Ce mois-ci" : "This Month"}
+        </button>
+        <button
+          type="button"
+          onClick={() => handlePresetSelect('last_30_days')}
+          className="px-2.5 py-1 rounded-lg bg-white/5 hover:bg-white/10 text-zinc-300 hover:text-white transition-colors cursor-pointer font-medium"
+        >
+          {language === 'fr' ? "30 derniers jours" : "Last 30 Days"}
+        </button>
+        <button
+          type="button"
+          onClick={() => handlePresetSelect('this_year')}
+          className="px-2.5 py-1 rounded-lg bg-white/5 hover:bg-white/10 text-zinc-300 hover:text-white transition-colors cursor-pointer font-medium"
+        >
+          {language === 'fr' ? "Cette année" : "This Year"}
+        </button>
+      </div>
+
       <div className="flex items-start justify-between w-full">
         <button
           type="button"
