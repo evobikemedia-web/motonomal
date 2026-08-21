@@ -7,7 +7,6 @@ interface DateRangePickerProps {
   startDate: string;
   endDate: string;
   onChange: (range: { startDate: string; endDate: string }) => void;
-  onSelectPreset?: (rangeType: DateFilterRange) => void; // Optionnel pour gérer les préréglages
   className?: string;
 }
 
@@ -86,7 +85,6 @@ export const DateRangePicker: React.FC<DateRangePickerProps> = ({
   const today = new Date();
   today.setHours(0, 0, 0, 0);
 
-  // Fonctions de raccourcis rapides (Aujourd'hui, Ce mois, etc.)
   const handlePresetSelect = (type: 'today' | 'this_month' | 'last_30_days' | 'this_year') => {
     const now = new Date();
     let start = new Date();
@@ -154,22 +152,22 @@ export const DateRangePicker: React.FC<DateRangePickerProps> = ({
     const cells = generateMonthCells(anchor);
 
     return (
-      <div style={{ width: 232 }} className="shrink-0 flex flex-col">
-        <div className="flex items-center justify-center mb-3" style={{ height: 20 }}>
+      <div className="w-full sm:w-[232px] shrink-0 flex flex-col">
+        <div className="flex items-center justify-center mb-3 h-5">
           <h3 className="text-gray-100 font-semibold text-xs tracking-wide">
             {monthNames[month]} {year}
           </h3>
         </div>
 
-        <div className="grid mb-1" style={{ gridTemplateColumns: 'repeat(7, 32px)', gridAutoRows: 32, columnGap: 4, rowGap: 4 }}>
+        <div className="grid mb-1 grid-cols-7 gap-1 text-center">
           {weekdaysShort.map((w) => (
-            <div key={w} style={{ width: 32, height: 32 }} className="text-gray-500 uppercase font-medium flex items-center justify-center">
-              <span style={{ fontSize: 10 }}>{w}</span>
+            <div key={w} className="w-8 h-8 text-zinc-500 uppercase font-medium flex items-center justify-center text-[10px]">
+              {w}
             </div>
           ))}
         </div>
 
-        <div className="grid" style={{ gridTemplateColumns: 'repeat(7, 32px)', gridAutoRows: 32, columnGap: 4, rowGap: 4 }}>
+        <div className="grid grid-cols-7 gap-1">
           {cells.map((day, idx) => {
             const inMonth = day.getMonth() === month;
             const isStart = startD && sameDay(day, startD);
@@ -177,19 +175,7 @@ export const DateRangePicker: React.FC<DateRangePickerProps> = ({
             const isRange = startD && endD && isBetween(day, startD, endD);
             const isToday = sameDay(day, today);
 
-            const baseStyle: React.CSSProperties = {
-              width: 32,
-              height: 32,
-              fontSize: 12,
-              borderRadius: 8,
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              border: 'none',
-              cursor: 'pointer',
-              userSelect: 'none',
-              padding: 0,
-            };
+            const baseStyle = "w-8 h-8 text-xs rounded-lg flex items-center justify-center border-none cursor-pointer select-none p-0 transition-all";
 
             if (isStart || isEnd) {
               return (
@@ -197,14 +183,7 @@ export const DateRangePicker: React.FC<DateRangePickerProps> = ({
                   key={idx}
                   type="button"
                   onClick={() => handleDayClick(day)}
-                  style={{
-                    ...baseStyle,
-                    backgroundColor: '#D4A017',
-                    color: '#000',
-                    fontWeight: 600,
-                    opacity: !inMonth ? 0.8 : 1,
-                  }}
-                  className="transition-all hover:brightness-110"
+                  className={`${baseStyle} bg-[#D4A017] text-black font-semibold hover:brightness-110 ${!inMonth ? 'opacity-80' : ''}`}
                 >
                   {day.getDate()}
                 </button>
@@ -217,13 +196,7 @@ export const DateRangePicker: React.FC<DateRangePickerProps> = ({
                   key={idx}
                   type="button"
                   onClick={() => handleDayClick(day)}
-                  style={{
-                    ...baseStyle,
-                    backgroundColor: 'rgba(212,160,23,0.15)',
-                    color: '#D4A017',
-                    opacity: !inMonth ? 0.6 : 1,
-                  }}
-                  className="transition-colors hover:bg-[#D4A017]/25"
+                  className={`${baseStyle} bg-[#D4A017]/15 text-[#D4A017] hover:bg-[#D4A017]/25 ${!inMonth ? 'opacity-60' : ''}`}
                 >
                   {day.getDate()}
                 </button>
@@ -235,13 +208,7 @@ export const DateRangePicker: React.FC<DateRangePickerProps> = ({
                 key={idx}
                 type="button"
                 onClick={() => handleDayClick(day)}
-                style={{
-                  ...baseStyle,
-                  backgroundColor: 'transparent',
-                  color: inMonth ? '#d1d5db' : '#52525b',
-                  boxShadow: isToday ? 'inset 0 0 0 1px rgba(255,255,255,0.2)' : undefined,
-                }}
-                className="transition-colors hover:bg-white/10"
+                className={`${baseStyle} bg-transparent ${inMonth ? 'text-zinc-300 hover:bg-white/10' : 'text-zinc-600 hover:text-zinc-400 hover:bg-white/5'} ${isToday ? 'ring-1 ring-white/20' : ''}`}
               >
                 {day.getDate()}
               </button>
@@ -254,44 +221,35 @@ export const DateRangePicker: React.FC<DateRangePickerProps> = ({
 
   return (
     <div
-      style={{
-        backgroundColor: '#1A1A1A',
-        border: '1px solid rgba(255,255,255,0.1)',
-        borderRadius: 12,
-        boxShadow: '0 20px 40px rgba(0,0,0,0.5)',
-        padding: 16,
-        minWidth: 580,
-        width: 'max-content',
-      }}
-      className={className}
+      className={`bg-[#1A1A1A] border border-white/10 rounded-2xl shadow-2xl p-4 w-[92vw] max-w-[580px] sm:w-max ${className}`}
     >
-      {/* Barre de raccourcis professionnels (Aujourd'hui, Ce mois, etc.) */}
-      <div className="flex items-center gap-1.5 pb-3 mb-3 border-b border-white/10 text-xs">
+      {/* Raccourcis rapides */}
+      <div className="grid grid-cols-2 sm:flex sm:flex-wrap items-center gap-1.5 pb-3 mb-3 border-b border-white/10 text-xs">
         <button
           type="button"
           onClick={() => handlePresetSelect('today')}
-          className="px-2.5 py-1 rounded-lg bg-white/5 hover:bg-white/10 text-zinc-300 hover:text-white transition-colors cursor-pointer font-medium"
+          className="px-2.5 py-1.5 rounded-lg bg-white/5 hover:bg-white/10 text-zinc-300 hover:text-white transition-colors cursor-pointer font-medium text-center"
         >
           {language === 'fr' ? "Aujourd'hui" : "Today"}
         </button>
         <button
           type="button"
           onClick={() => handlePresetSelect('this_month')}
-          className="px-2.5 py-1 rounded-lg bg-white/5 hover:bg-white/10 text-zinc-300 hover:text-white transition-colors cursor-pointer font-medium"
+          className="px-2.5 py-1.5 rounded-lg bg-white/5 hover:bg-white/10 text-zinc-300 hover:text-white transition-colors cursor-pointer font-medium text-center"
         >
           {language === 'fr' ? "Ce mois-ci" : "This Month"}
         </button>
         <button
           type="button"
           onClick={() => handlePresetSelect('last_30_days')}
-          className="px-2.5 py-1 rounded-lg bg-white/5 hover:bg-white/10 text-zinc-300 hover:text-white transition-colors cursor-pointer font-medium"
+          className="px-2.5 py-1.5 rounded-lg bg-white/5 hover:bg-white/10 text-zinc-300 hover:text-white transition-colors cursor-pointer font-medium text-center"
         >
           {language === 'fr' ? "30 derniers jours" : "Last 30 Days"}
         </button>
         <button
           type="button"
           onClick={() => handlePresetSelect('this_year')}
-          className="px-2.5 py-1 rounded-lg bg-white/5 hover:bg-white/10 text-zinc-300 hover:text-white transition-colors cursor-pointer font-medium"
+          className="px-2.5 py-1.5 rounded-lg bg-white/5 hover:bg-white/10 text-zinc-300 hover:text-white transition-colors cursor-pointer font-medium text-center"
         >
           {language === 'fr' ? "Cette année" : "This Year"}
         </button>
@@ -301,62 +259,28 @@ export const DateRangePicker: React.FC<DateRangePickerProps> = ({
         <button
           type="button"
           onClick={() => shiftMonths(-1)}
-          style={{
-            width: 32,
-            height: 32,
-            borderRadius: 9999,
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            border: 'none',
-            cursor: 'pointer',
-            padding: 0,
-            background: 'transparent',
-            color: '#a1a1aa',
-            marginTop: 18,
-          }}
-          className="transition-colors hover:text-[#D4A017] hover:bg-white/5"
+          className="w-8 h-8 rounded-full flex items-center justify-center border-none cursor-pointer p-0 bg-transparent text-zinc-400 hover:text-[#D4A017] hover:bg-white/5 transition-colors mt-4 shrink-0"
           aria-label="Previous months"
         >
-          <ChevronLeft style={{ width: 16, height: 16 }} />
+          <ChevronLeft className="w-4 h-4" />
         </button>
 
-        <div className="flex items-start shrink-0" style={{ gap: 20 }}>
+        {/* Sur mobile, un seul mois affiché ; sur écran large, les deux mois côte à côte */}
+        <div className="flex flex-col sm:flex-row items-center sm:items-start shrink-0 gap-5 sm:gap-5 w-full justify-center px-1">
           {renderMonth(leftAnchor)}
-          <div
-            style={{
-              width: 1,
-              alignSelf: 'stretch',
-              backgroundColor: 'rgba(255,255,255,0.1)',
-              marginTop: 4,
-              marginBottom: 4,
-              flexShrink: 0,
-            }}
-          />
-          {renderMonth(rightAnchor)}
+          <div className="hidden sm:block w-[1px] self-stretch bg-white/10 my-1 shrink-0" />
+          <div className="hidden sm:block">
+            {renderMonth(rightAnchor)}
+          </div>
         </div>
 
         <button
           type="button"
           onClick={() => shiftMonths(1)}
-          style={{
-            width: 32,
-            height: 32,
-            borderRadius: 9999,
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            border: 'none',
-            cursor: 'pointer',
-            padding: 0,
-            background: 'transparent',
-            color: '#a1a1aa',
-            marginTop: 18,
-          }}
-          className="transition-colors hover:text-[#D4A017] hover:bg-white/5"
+          className="w-8 h-8 rounded-full flex items-center justify-center border-none cursor-pointer p-0 bg-transparent text-zinc-400 hover:text-[#D4A017] hover:bg-white/5 transition-colors mt-4 shrink-0"
           aria-label="Next months"
         >
-          <ChevronRight style={{ width: 16, height: 16 }} />
+          <ChevronRight className="w-4 h-4" />
         </button>
       </div>
     </div>
