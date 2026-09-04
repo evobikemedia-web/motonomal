@@ -2,6 +2,7 @@ import React from 'react';
 import { BarChart3, Download, FileText, CheckCircle2 } from 'lucide-react';
 import { Motorcycle, Reservation, Revenue, Expense, Client } from '../../types';
 import { formatCurrency } from '../../utils/calculations';
+import { useLanguage } from '../../context/LanguageContext';
 
 interface ReportsModuleProps {
   motorcycles: Motorcycle[];
@@ -20,6 +21,8 @@ export const ReportsModule: React.FC<ReportsModuleProps> = ({
   clients,
   currency,
 }) => {
+  const { language } = useLanguage();
+
   const downloadReport = (title: string, dataStr: string) => {
     const blob = new Blob([dataStr], { type: 'text/csv' });
     const url = URL.createObjectURL(blob);
@@ -46,10 +49,13 @@ export const ReportsModule: React.FC<ReportsModuleProps> = ({
     <div className="space-y-6 animate-fadeIn">
       <div>
         <h2 className="text-2xl font-black text-[#F4F4F2] flex items-center gap-2">
-          <BarChart3 className="w-6 h-6 text-[#D4A017]" /> Executive Business Reports
+          <BarChart3 className="w-6 h-6 text-[#D4A017]" /> 
+          {language === 'fr' ? 'Rapports d’Activité de la Direction' : 'Executive Business Reports'}
         </h2>
         <p className="text-xs text-zinc-400 mt-1">
-          Export full financial P&L, fleet depreciation logs, client LTV, and tour performance CSV/PDF records.
+          {language === 'fr'
+            ? 'Exportez les comptes de résultat financiers complets, les journaux d’amortissement de la flotte, la LTV client et les performances des circuits au format CSV/PDF.'
+            : 'Export full financial P&L, fleet depreciation logs, client LTV, and tour performance CSV/PDF records.'}
         </p>
       </div>
 
@@ -58,15 +64,22 @@ export const ReportsModule: React.FC<ReportsModuleProps> = ({
           <div className="flex items-center gap-3">
             <FileText className="w-8 h-8 text-[#D4A017]" />
             <div>
-              <h3 className="font-bold text-base text-[#F4F4F2]">Financial P&L Statement</h3>
-              <p className="text-xs text-zinc-400">Complete itemized audit of rental revenues, tour income, and operational expenses.</p>
+              <h3 className="font-bold text-base text-[#F4F4F2]">
+                {language === 'fr' ? 'Compte de Résultat Financier (P&L)' : 'Financial P&L Statement'}
+              </h3>
+              <p className="text-xs text-zinc-400">
+                {language === 'fr'
+                  ? 'Audit détaillé et ventilé des revenus de location, des recettes de circuits et des dépenses opérationnelles.'
+                  : 'Complete itemized audit of rental revenues, tour income, and operational expenses.'}
+              </p>
             </div>
           </div>
           <button
             onClick={exportFinancials}
             className="flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-bold bg-[#D4A017] text-[#1C1C1C] hover:bg-[#b88a10] transition-colors"
           >
-            <Download className="w-4 h-4" /> Download Financial CSV
+            <Download className="w-4 h-4" /> 
+            {language === 'fr' ? 'Télécharger le CSV Financier' : 'Download Financial CSV'}
           </button>
         </div>
 
@@ -74,18 +87,27 @@ export const ReportsModule: React.FC<ReportsModuleProps> = ({
           <div className="flex items-center gap-3">
             <FileText className="w-8 h-8 text-[#D4A017]" />
             <div>
-              <h3 className="font-bold text-base text-[#F4F4F2]">Fleet Depreciation & ROI Report</h3>
-              <p className="text-xs text-zinc-400">Motorcycle purchase values, accumulated straight-line depreciation, and net revenue.</p>
+              <h3 className="font-bold text-base text-[#F4F4F2]">
+                {language === 'fr' ? 'Rapport d’Amortissement & ROI de la Flotte' : 'Fleet Depreciation & ROI Report'}
+              </h3>
+              <p className="text-xs text-zinc-400">
+                {language === 'fr'
+                  ? 'Valeurs d’achat des motos, amortissement linéaire cumulé et revenu net.'
+                  : 'Motorcycle purchase values, accumulated straight-line depreciation, and net revenue.'}
+              </p>
             </div>
           </div>
           <button
             onClick={exportFleet}
             className="flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-bold bg-[#D4A017] text-[#1C1C1C] hover:bg-[#b88a10] transition-colors"
           >
-            <Download className="w-4 h-4" /> Download Fleet CSV
+            <Download className="w-4 h-4" /> 
+            {language === 'fr' ? 'Télécharger le CSV de la Flotte' : 'Download Fleet CSV'}
           </button>
         </div>
       </div>
     </div>
   );
 };
+
+export default ReportsModule;

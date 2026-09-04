@@ -1,6 +1,7 @@
 import React from 'react';
 import { Settings, RefreshCw, Database, Shield, Globe, DollarSign } from 'lucide-react';
 import { dbStore } from '../../services/db';
+import { useLanguage } from '../../context/LanguageContext';
 
 interface SettingsModuleProps {
   currency: 'MAD' | 'EUR' | 'USD';
@@ -13,14 +14,19 @@ export const SettingsModule: React.FC<SettingsModuleProps> = ({
   onCurrencyChange,
   onResetDemoData,
 }) => {
+  const { language } = useLanguage();
+
   return (
     <div className="space-y-6 animate-fadeIn max-w-4xl">
       <div>
         <h2 className="text-2xl font-black text-[#F4F4F2] flex items-center gap-2">
-          <Settings className="w-6 h-6 text-[#D4A017]" /> System & Enterprise Settings
+          <Settings className="w-6 h-6 text-[#D4A017]" /> 
+          {language === 'fr' ? 'Paramètres Système & Entreprise' : 'System & Enterprise Settings'}
         </h2>
         <p className="text-xs text-zinc-400 mt-1">
-          Configure Motonomad system parameters, default currency display, and database state.
+          {language === 'fr'
+            ? 'Configurez les paramètres système de Motonomad, l’affichage de la devise par défaut et l’état de la base de données.'
+            : 'Configure Motonomad system parameters, default currency display, and database state.'}
         </p>
       </div>
 
@@ -30,8 +36,14 @@ export const SettingsModule: React.FC<SettingsModuleProps> = ({
           <div className="flex items-center gap-3">
             <Globe className="w-5 h-5 text-[#D4A017]" />
             <div>
-              <h3 className="font-bold text-base text-[#F4F4F2]">Display Currency & Exchange Rates</h3>
-              <p className="text-xs text-zinc-400">All internal database values are stored in MAD (Moroccan Dirham).</p>
+              <h3 className="font-bold text-base text-[#F4F4F2]">
+                {language === 'fr' ? 'Devise d’Affichage & Taux de Change' : 'Display Currency & Exchange Rates'}
+              </h3>
+              <p className="text-xs text-zinc-400">
+                {language === 'fr'
+                  ? 'Toutes les valeurs internes de la base de données sont stockées en MAD (Dirham Marocain).'
+                  : 'All internal database values are stored in MAD (Moroccan Dirham).'}
+              </p>
             </div>
           </div>
 
@@ -57,23 +69,35 @@ export const SettingsModule: React.FC<SettingsModuleProps> = ({
           <div className="flex items-center gap-3">
             <Database className="w-5 h-5 text-rose-400" />
             <div>
-              <h3 className="font-bold text-base text-[#F4F4F2]">Database State & Demo Reset</h3>
-              <p className="text-xs text-zinc-400">Reset local dataset to original Motonomad Morocco sample records.</p>
+              <h3 className="font-bold text-base text-[#F4F4F2]">
+                {language === 'fr' ? 'État de la Base de Données & Réinitialisation Démo' : 'Database State & Demo Reset'}
+              </h3>
+              <p className="text-xs text-zinc-400">
+                {language === 'fr'
+                  ? 'Réinitialisez le jeu de données local avec les enregistrements d’exemple d’origine de Motonomad Maroc.'
+                  : 'Reset local dataset to original Motonomad Morocco sample records.'}
+              </p>
             </div>
           </div>
 
           <button
             onClick={() => {
-              if (window.confirm('Reset database to initial demo dataset?')) {
+              const confirmMsg = language === 'fr' 
+                ? 'Réinitialiser la base de données avec le jeu de données de démonstration initial ?' 
+                : 'Reset database to initial demo dataset?';
+              if (window.confirm(confirmMsg)) {
                 onResetDemoData();
               }
             }}
             className="flex items-center gap-2 px-4 py-2.5 rounded-xl text-xs font-bold bg-rose-950 border border-rose-800 text-rose-300 hover:bg-rose-900 transition-colors"
           >
-            <RefreshCw className="w-4 h-4" /> Reset Demo Dataset
+            <RefreshCw className="w-4 h-4" /> 
+            {language === 'fr' ? 'Réinitialiser les Données de Démo' : 'Reset Demo Dataset'}
           </button>
         </div>
       </div>
     </div>
   );
 };
+
+export default SettingsModule;

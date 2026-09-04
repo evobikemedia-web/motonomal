@@ -1,20 +1,26 @@
 import React from 'react';
 import { ShieldCheck, Clock, User, Activity } from 'lucide-react';
 import { AuditLog } from '../../types';
+import { useLanguage } from '../../context/LanguageContext';
 
 interface AuditLogModuleProps {
   auditLogs: AuditLog[];
 }
 
 export const AuditLogModule: React.FC<AuditLogModuleProps> = ({ auditLogs }) => {
+  const { language } = useLanguage();
+
   return (
     <div className="space-y-6 animate-fadeIn">
       <div>
         <h2 className="text-2xl font-black text-[#F4F4F2] flex items-center gap-2">
-          <ShieldCheck className="w-6 h-6 text-[#D4A017]" /> Security & System Audit Trail
+          <ShieldCheck className="w-6 h-6 text-[#D4A017]" /> 
+          {language === 'fr' ? 'Journal d’Audit de Sécurité & Système' : 'Security & System Audit Trail'}
         </h2>
         <p className="text-xs text-zinc-400 mt-1">
-          Full compliance log tracking created, edited, deleted, and exported business records.
+          {language === 'fr'
+            ? 'Suivi complet de la conformité des enregistrements professionnels créés, modifiés, supprimés et exportés.'
+            : 'Full compliance log tracking created, edited, deleted, and exported business records.'}
         </p>
       </div>
 
@@ -22,11 +28,11 @@ export const AuditLogModule: React.FC<AuditLogModuleProps> = ({ auditLogs }) => 
         <table className="w-full text-left text-xs text-[#F4F4F2]">
           <thead className="bg-[#222222] border-b border-[#2D2D2D] text-zinc-400 font-bold uppercase">
             <tr>
-              <th className="p-4">Timestamp</th>
-              <th className="p-4">User</th>
-              <th className="p-4">Action</th>
-              <th className="p-4">Module Target</th>
-              <th className="p-4">Details</th>
+              <th className="p-4">{language === 'fr' ? 'Horodatage' : 'Timestamp'}</th>
+              <th className="p-4">{language === 'fr' ? 'Utilisateur' : 'User'}</th>
+              <th className="p-4">{language === 'fr' ? 'Action' : 'Action'}</th>
+              <th className="p-4">{language === 'fr' ? 'Module Cible' : 'Module Target'}</th>
+              <th className="p-4">{language === 'fr' ? 'Détails' : 'Details'}</th>
             </tr>
           </thead>
           <tbody className="divide-y divide-[#2A2A2A]">
@@ -45,3 +51,5 @@ export const AuditLogModule: React.FC<AuditLogModuleProps> = ({ auditLogs }) => 
     </div>
   );
 };
+
+export default AuditLogModule;
