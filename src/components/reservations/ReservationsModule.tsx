@@ -299,9 +299,9 @@ export const ReservationsModule: React.FC<ReservationsModuleProps> = ({
             onAction={handleOpenAdd}
           />
         ) : (
-          <div className="rounded-2xl border border-[#2D2D2D] bg-[#1C1C1C] overflow-hidden shadow-xl">
-            <div className="overflow-x-auto">
-              <table className="w-full text-left text-xs text-[#F4F4F2]">
+          <div className="rounded-2xl border border-[#2D2D2D] bg-[#1C1C1C] overflow-hidden shadow-xl w-full">
+            <div className="overflow-x-auto custom-scrollbar pb-2">
+              <table className="w-full text-left text-xs text-[#F4F4F2] min-w-[1000px]">
                 <thead className="bg-[#222222] border-b border-[#2D2D2D] text-zinc-400 font-bold uppercase tracking-wider">
                   <tr>
                     <th className="p-4">{language === 'fr' ? 'ID / STATUT' : 'BOOKING ID / STATUS'}</th>
