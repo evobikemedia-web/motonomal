@@ -29,7 +29,9 @@ export const QuickActionsBar: React.FC<QuickActionsBarProps> = ({ onAction }) =>
         <span>{t('quick_actions.title')}</span>
         <span className="text-[10px] text-zinc-500">1-Tap Shortcuts</span>
       </div>
-      <div className="flex items-center gap-2 overflow-x-auto pb-1 scrollbar-none">
+      
+      {/* Grille responsive : 2 colonnes compactes sur mobile, flex wrap fluide sur tablette/desktop */}
+      <div className="grid grid-cols-2 sm:flex sm:flex-wrap items-stretch sm:items-center gap-2">
         {actions.map((act) => {
           const Icon = act.icon;
           const isPrimary = act.key === 'new_reservation';
@@ -39,15 +41,15 @@ export const QuickActionsBar: React.FC<QuickActionsBarProps> = ({ onAction }) =>
               key={act.key}
               onClick={() => onAction(act.key)}
               className={`
-                flex items-center gap-2 px-3 py-2 rounded-xl border text-xs shrink-0 transition-all duration-200 active:scale-95
+                flex items-center justify-start sm:justify-center gap-2 px-3 py-2.5 rounded-xl border text-xs transition-all duration-200 active:scale-95
                 ${isPrimary 
-                  ? 'bg-[#D4A017] text-black border-[#D4A017] font-semibold hover:brightness-110' 
+                  ? 'bg-[#D4A017] text-black border-[#D4A017] font-semibold hover:brightness-110 col-span-2 sm:col-span-1' 
                   : 'bg-white/5 text-gray-300 border-white/10 hover:bg-white/10 hover:border-white/20'
                 }
               `}
             >
               <Icon className={`w-4 h-4 shrink-0 ${isPrimary ? 'text-black' : act.iconColor}`} />
-              <span className="whitespace-nowrap">{act.label}</span>
+              <span className="truncate">{act.label}</span>
             </button>
           );
         })}
