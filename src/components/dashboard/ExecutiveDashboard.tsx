@@ -292,7 +292,7 @@ export const ExecutiveDashboard: React.FC<ExecutiveDashboardProps> = ({
     return (clients || []).slice().sort((a, b) => (b.lifetimeValue || b.totalSpent || 0) - (a.lifetimeValue || a.totalSpent || 0)).slice(0, 5);
   }, [clients]);
 
- const alerts = useMemo(() => {
+  const alerts = useMemo(() => {
     const list: { id: string; type: 'warning' | 'danger' | 'info'; title: string; message: string; tab?: string }[] = [];
 
     bikeProfitabilityList.forEach((bp) => {
@@ -346,6 +346,7 @@ export const ExecutiveDashboard: React.FC<ExecutiveDashboardProps> = ({
 
     return list;
   }, [bikeProfitabilityList, fleetStatusCounts, filteredReservations, targets, language]);
+
   // Période traduite dynamiquement selon la langue (FR / EN)
   const periodLabelText = useMemo(() => {
     if (selectedRange === 'today') return language === 'fr' ? "Aujourd'hui" : 'Today';
@@ -1239,7 +1240,7 @@ export const ExecutiveDashboard: React.FC<ExecutiveDashboardProps> = ({
       <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
         <div className="p-5 rounded-2xl bg-[#181818] border border-[#2D2D2D] shadow-xl space-y-3">
           <h4 className="text-xs font-bold uppercase tracking-wider text-[#D4A017] flex items-center gap-1.5">
-            <Award className="w-4 h-4" /> Top 5 Motorcycles by Revenue
+            <Award className="w-4 h-4" /> {language === 'fr' ? 'Top 5 Motos par Chiffre d’Affaires' : 'Top 5 Motorcycles by Revenue'}
           </h4>
           <div className="space-y-2 text-xs">
             {topBikesByRevenue.map(({ motorcycle, revenue, roi }, idx) => (
@@ -1259,11 +1260,13 @@ export const ExecutiveDashboard: React.FC<ExecutiveDashboardProps> = ({
 
         <div className="p-5 rounded-2xl bg-[#181818] border border-[#2D2D2D] shadow-xl space-y-3">
           <h4 className="text-xs font-bold uppercase tracking-wider text-[#D4A017] flex items-center gap-1.5">
-            <Users className="w-4 h-4" /> Top 5 Agencies by Revenue
+            <Users className="w-4 h-4" /> {language === 'fr' ? 'Top 5 Agences par Chiffre d’Affaires' : 'Top 5 Agencies by Revenue'}
           </h4>
           <div className="space-y-2 text-xs">
             {topAgencies.length === 0 ? (
-              <div className="text-zinc-500 py-6 text-center">No agency bookings recorded.</div>
+              <div className="text-zinc-500 py-6 text-center">
+                {language === 'fr' ? 'Aucune réservation d’agence enregistrée.' : 'No agency bookings recorded.'}
+              </div>
             ) : (
               topAgencies.map((agency, idx) => (
                 <div key={agency.id} className="p-2.5 rounded-xl bg-[#202020] border border-[#2D2D2D] flex items-center justify-between">
@@ -1283,7 +1286,7 @@ export const ExecutiveDashboard: React.FC<ExecutiveDashboardProps> = ({
 
         <div className="p-5 rounded-2xl bg-[#181818] border border-[#2D2D2D] shadow-xl space-y-3">
           <h4 className="text-xs font-bold uppercase tracking-wider text-[#D4A017] flex items-center gap-1.5">
-            <Compass className="w-4 h-4" /> Top 5 Clients by Spend
+            <Compass className="w-4 h-4" /> {language === 'fr' ? 'Top 5 Clients par Dépenses' : 'Top 5 Clients by Spend'}
           </h4>
           <div className="space-y-2 text-xs">
             {topClients.map((client, idx) => (

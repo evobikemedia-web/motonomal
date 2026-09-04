@@ -29,7 +29,7 @@ import {
 } from './types';
 
 const MainAppContent: React.FC = () => {
-  const {  user, hasPermission } = useAuth();
+  const { user, hasPermission } = useAuth();
   const [activeTab, setActiveTab] = useState<string>('dashboard');
   const [currency, setCurrency] = useState<'MAD' | 'EUR' | 'USD'>('MAD');
   const [dateRange, setDateRange] = useState<DateFilterRange>('this_month');
@@ -84,19 +84,17 @@ const MainAppContent: React.FC = () => {
     loadData();
   };
 
-  // Quick action handler
-  const handleQuickAction = (action: string) => {
-    if (action === 'new_reservation') {
+  // Quick action handler updated to match Header keys ('reservation' | 'client' | 'motorcycle')
+  const handleQuickAction = (action: 'reservation' | 'client' | 'motorcycle') => {
+    if (action === 'reservation') {
       setActiveTab('reservations');
       setQuickActionModal('add_res');
-    } else if (action === 'add_client') {
+    } else if (action === 'client') {
       setActiveTab('clients');
       setQuickActionModal('add_client');
-    } else if (action === 'add_motorcycle') {
+    } else if (action === 'motorcycle') {
       setActiveTab('fleet');
       setQuickActionModal('add_bike');
-    } else if (action === 'log_expense') {
-      setActiveTab('finance');
     }
   };
 
@@ -127,7 +125,7 @@ const MainAppContent: React.FC = () => {
           setCustomStartDate={setCustomStartDate}
           customEndDate={customEndDate}
           setCustomEndDate={setCustomEndDate}
-                    setActiveTab={setActiveTab}
+          setActiveTab={setActiveTab}
           onQuickAction={handleQuickAction}
         />
 
