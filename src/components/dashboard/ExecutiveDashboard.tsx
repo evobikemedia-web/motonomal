@@ -990,8 +990,8 @@ export const ExecutiveDashboard: React.FC<ExecutiveDashboardProps> = ({
           </button>
         </div>
 
-        <div className="overflow-x-auto custom-scrollbar">
-          <table className="w-full text-xs text-left border-collapse">
+        <div className="w-full overflow-x-auto custom-scrollbar pb-4">
+          <table className="w-full text-xs text-left border-collapse min-w-[1000px]">
             <thead className="bg-[#1A1A1A]">
               <tr className="border-b border-zinc-800">
                 <th className="p-4 text-zinc-400 text-[10px] font-semibold uppercase tracking-wider">{language === 'fr' ? 'Moto / Actif' : 'Motorcycle Asset'}</th>

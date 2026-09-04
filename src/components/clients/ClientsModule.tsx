@@ -222,47 +222,72 @@ export const ClientsModule: React.FC<ClientsModuleProps> = ({
         />
       ) : (
         <div className="space-y-4">
-          {/* Mobile Card Layout */}
+          {/* Mobile Card Layout (Rich Information Data) */}
           <div className="grid grid-cols-1 gap-4 md:hidden">
             {filteredClients.map((client) => (
               <div
                 key={client.id}
                 onClick={() => setSelectedClient(client)}
-                className="p-5 rounded-2xl bg-[#181818] border border-[#2D2D2D] hover:border-[#D4A017]/40 transition-colors shadow-xl space-y-4 cursor-pointer"
+                className="p-4 rounded-2xl bg-[#181818] border border-[#2D2D2D] hover:border-[#D4A017]/40 transition-colors shadow-xl space-y-3 cursor-pointer"
               >
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-3.5">
-                    <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl bg-[#262626] text-[#D4A017] font-black border border-[#333333] shadow-inner">
+                {/* Header: Avatar, Name, Spend, ID */}
+                <div className="flex items-start justify-between gap-2">
+                  <div className="flex items-center gap-3 min-w-0">
+                    <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-gradient-to-br from-[#2D2D2D] to-[#1A1A1A] text-[#D4A017] font-bold border border-[#383838] shadow-sm">
                       {client.firstName.charAt(0)}{client.lastName.charAt(0)}
                     </div>
-                    <div>
-                      <h4 className="font-bold text-base text-white">{client.fullName}</h4>
-                      <span className="text-xs text-zinc-400 font-medium">{client.nationality} • {client.country}</span>
+                    <div className="min-w-0">
+                      <h4 className="font-bold text-sm text-white truncate">{client.fullName}</h4>
+                      <span className="text-[10px] text-zinc-500 font-mono block">ID: {client.id}</span>
                     </div>
                   </div>
-                  <span className="text-sm font-black text-emerald-400">
-                    {formatCurrencyVal(client.totalSpent || 0, currency)}
-                  </span>
+                  <div className="text-right shrink-0">
+                    <span className="text-sm font-black text-emerald-400 block">
+                      {formatCurrencyVal(client.totalSpent || 0, currency)}
+                    </span>
+                    <div className="flex items-center justify-end gap-1 mt-0.5 text-zinc-400">
+                      <Calendar className="w-3 h-3 text-[#D4A017]/70" />
+                      <span className="text-[10px] font-bold">{client.bookingsCount} {language === 'fr' ? 'Résa' : 'Bookings'}</span>
+                    </div>
+                  </div>
                 </div>
 
-                <div className="grid grid-cols-2 gap-3 text-xs pt-3 border-t border-[#2A2A2A]">
-                  <div className="space-y-1">
-                    <span className="text-[10px] text-zinc-500 font-bold uppercase tracking-wider block">{language === 'fr' ? 'Passeport' : t('passport')}</span>
-                    <span className="font-mono text-zinc-300 bg-[#222222] px-2 py-1 rounded-md block w-fit border border-[#333]">{client.passportNumber || 'N/A'}</span>
+                {/* Info Grid: Contact & Identity */}
+                <div className="grid grid-cols-1 gap-2 text-xs pt-2 border-t border-[#2A2A2A]">
+                  <div className="flex flex-col gap-1.5">
+                    <div className="flex items-center gap-2 text-zinc-300">
+                      <Mail className="w-3.5 h-3.5 text-zinc-500 shrink-0" />
+                      <span className="truncate">{client.email || 'N/A'}</span>
+                    </div>
+                    <div className="flex items-center gap-2 text-zinc-300">
+                      <Phone className="w-3.5 h-3.5 text-zinc-500 shrink-0" />
+                      <span className="truncate">{client.phone || 'N/A'}</span>
+                      <span className="text-zinc-600 mx-1">•</span>
+                      <span className="truncate text-zinc-400">{client.nationality} ({client.country})</span>
+                    </div>
                   </div>
-                  <div className="space-y-1">
-                    <span className="text-[10px] text-zinc-500 font-bold uppercase tracking-wider block">{language === 'fr' ? 'N° Permis' : t('license_no')}</span>
-                    <span className="font-mono text-amber-400 bg-amber-950/20 px-2 py-1 rounded-md block w-fit border border-amber-900/30">{client.licenseNumber || 'N/A'}</span>
+
+                  <div className="flex flex-wrap items-center gap-2 mt-1">
+                    <div className="flex items-center gap-1.5 px-2 py-1 rounded-md bg-[#222222] border border-[#333333] w-fit">
+                      <IdCard className="w-3 h-3 text-zinc-500" />
+                      <span className="text-[10px] font-mono text-zinc-300">{client.passportNumber || 'N/A'}</span>
+                    </div>
+                    <div className="flex items-center gap-1.5 px-2 py-1 rounded-md bg-amber-950/10 border border-amber-900/20 w-fit">
+                      <CreditCard className="w-3 h-3 text-amber-500/70" />
+                      <span className="text-[10px] font-mono text-amber-400">
+                        {client.licenseCategory ? `[${client.licenseCategory}] ` : ''}{client.licenseNumber || 'N/A'}
+                      </span>
+                    </div>
                   </div>
                 </div>
 
                 {/* Quick Touch Action Buttons */}
-                <div className="flex items-center justify-between gap-2 pt-2" onClick={(e) => e.stopPropagation()}>
+                <div className="flex items-center justify-between gap-2 pt-3 border-t border-[#2A2A2A]" onClick={(e) => e.stopPropagation()}>
                   <div className="flex items-center gap-2">
                     {client.phone && (
                       <a
                         href={`tel:${client.phone}`}
-                        className="flex items-center justify-center w-10 h-10 rounded-xl bg-emerald-950/40 text-emerald-400 border border-emerald-800/40 hover:bg-emerald-900/40 transition-colors"
+                        className="flex items-center justify-center w-9 h-9 rounded-xl bg-emerald-950/40 text-emerald-400 border border-emerald-800/40 hover:bg-emerald-900/40 transition-colors"
                       >
                         <Phone className="w-4 h-4" />
                       </a>
@@ -272,7 +297,7 @@ export const ClientsModule: React.FC<ClientsModuleProps> = ({
                         href={`https://wa.me/${(client.whatsapp || client.phone).replace(/[^0-9]/g, '')}`}
                         target="_blank"
                         rel="noopener noreferrer"
-                        className="flex items-center justify-center w-10 h-10 rounded-xl bg-emerald-600/10 text-emerald-300 border border-emerald-500/20 hover:bg-emerald-500/20 transition-colors"
+                        className="flex items-center justify-center w-9 h-9 rounded-xl bg-emerald-600/10 text-emerald-300 border border-emerald-500/20 hover:bg-emerald-500/20 transition-colors"
                       >
                         <MessageSquare className="w-4 h-4" />
                       </a>
@@ -286,13 +311,13 @@ export const ClientsModule: React.FC<ClientsModuleProps> = ({
                         setFormData(client);
                         setIsEditModalOpen(true);
                       }}
-                      className="p-2.5 rounded-xl bg-[#262626] text-zinc-300 hover:text-white border border-[#333333] transition-colors cursor-pointer"
+                      className="p-2 rounded-xl bg-[#262626] text-zinc-300 hover:text-white border border-[#333333] transition-colors cursor-pointer"
                     >
                       <Edit className="w-4 h-4" />
                     </button>
                     <button
                       onClick={() => setDeleteClientId(client.id)}
-                      className="p-2.5 rounded-xl bg-rose-950/30 text-rose-400 hover:bg-rose-900/50 border border-rose-900/30 transition-colors cursor-pointer"
+                      className="p-2 rounded-xl bg-rose-950/30 text-rose-400 hover:bg-rose-900/50 border border-rose-900/30 transition-colors cursor-pointer"
                     >
                       <Trash2 className="w-4 h-4" />
                     </button>
