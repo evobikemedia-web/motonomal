@@ -78,7 +78,8 @@
   }
 
   .card-hover-premium:hover {
-    @apply -translate-y-1 shadow-2xl shadow-black/50;
+    transform: translateY(-0.25rem);
+    box-shadow: 0 25px 50px -12px rgb(0 0 0 / 0.5);
   }
 
   .premium-spotlight-card {

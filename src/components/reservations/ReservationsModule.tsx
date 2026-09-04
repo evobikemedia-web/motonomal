@@ -13,6 +13,7 @@ import { CheckInOutModal } from '../handover/CheckInOutModal';
 import { 
   formatCurrency, calculateRentalDays, calculateRentalPrice, isMotorcycleAvailable 
 } from '../../utils/calculations';
+import { useLanguage } from '../../context/LanguageContext';
 
 interface ReservationsModuleProps {
   reservations: Reservation[];
@@ -31,6 +32,7 @@ export const ReservationsModule: React.FC<ReservationsModuleProps> = ({
   onUpdate,
   initialOpenAddModal = false,
 }) => {
+  const { t, formatCurrencyVal, language } = useLanguage();
   const [viewMode, setViewMode] = useState<'calendar' | 'list'>('list');
   const [search, setSearch] = useState('');
   const [statusFilter, setStatusFilter] = useState('ALL');
@@ -116,7 +118,9 @@ export const ReservationsModule: React.FC<ReservationsModuleProps> = ({
     if (!availCheck.available && availCheck.conflictingReservation) {
       const conf = availCheck.conflictingReservation;
       setDoubleBookingError(
-        `CONFLICT DETECTED: Motorcycle ${bike.brand} ${bike.model} (${bike.registrationNumber}) is already booked from ${conf.startDate} to ${conf.endDate} by ${conf.clientName} (Booking ID: ${conf.id}). Double booking prevented!`
+        language === 'fr'
+          ? `CONFLIT DÉTECTÉ : La moto ${bike.brand} ${bike.model} (${bike.registrationNumber}) est déjà réservée du ${conf.startDate} au ${conf.endDate} par ${conf.clientName} (ID de réservation : ${conf.id}). Double réservation empêchée !`
+          : `CONFLICT DETECTED: Motorcycle ${bike.brand} ${bike.model} (${bike.registrationNumber}) is already booked from ${conf.startDate} to ${conf.endDate} by ${conf.clientName} (Booking ID: ${conf.id}). Double booking prevented!`
       );
       return;
     }
@@ -212,42 +216,45 @@ export const ReservationsModule: React.FC<ReservationsModuleProps> = ({
   });
 
   return (
-    <div className="space-y-6 animate-fadeIn">
+    <div className="space-y-6 animate-fadeIn text-[#F4F4F2]">
       {/* Header */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
           <h2 className="text-2xl font-black text-[#F4F4F2] flex items-center gap-2">
-            <Calendar className="w-6 h-6 text-[#D4A017]" /> Reservation & Rental Management
+            <Calendar className="w-6 h-6 text-[#D4A017]" /> 
+            {language === 'fr' ? 'Gestion des Réservations & Locations' : 'Reservation & Rental Management'}
           </h2>
           <p className="text-xs text-zinc-400 mt-1">
-            Automatic availability validation, rental contract tracking, check-in/out handovers, and double booking prevention.
+            {language === 'fr'
+              ? 'Validation automatique des disponibilités, suivi des contrats de location, prises en main check-in/check-out et prévention des doubles réservations.'
+              : 'Automatic availability validation, rental contract tracking, check-in/out handovers, and double booking prevention.'}
           </p>
         </div>
         <div className="flex items-center gap-2">
           <div className="flex items-center bg-[#262626] border border-[#333333] rounded-xl p-1 text-xs">
             <button
               onClick={() => setViewMode('list')}
-              className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg font-bold transition-colors ${
+              className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg font-bold transition-colors cursor-pointer ${
                 viewMode === 'list' ? 'bg-[#D4A017] text-[#1C1C1C]' : 'text-zinc-400 hover:text-white'
               }`}
             >
-              <List className="w-3.5 h-3.5" /> Booking List
+              <List className="w-3.5 h-3.5" /> {language === 'fr' ? 'Liste des Réservations' : 'Booking List'}
             </button>
             <button
               onClick={() => setViewMode('calendar')}
-              className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg font-bold transition-colors ${
+              className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg font-bold transition-colors cursor-pointer ${
                 viewMode === 'calendar' ? 'bg-[#D4A017] text-[#1C1C1C]' : 'text-zinc-400 hover:text-white'
               }`}
             >
-              <Calendar className="w-3.5 h-3.5" /> Calendar View
+              <Calendar className="w-3.5 h-3.5" /> {language === 'fr' ? 'Vue Calendrier' : 'Calendar View'}
             </button>
           </div>
 
           <button
             onClick={handleOpenAdd}
-            className="flex items-center gap-2 px-4 py-2.5 rounded-xl text-xs font-bold bg-[#D4A017] text-[#1C1C1C] hover:bg-[#b88a10] transition-colors shadow-lg shadow-[#D4A017]/10"
+            className="flex items-center gap-2 px-4 py-2.5 rounded-xl text-xs font-bold bg-[#D4A017] text-[#1C1C1C] hover:bg-[#b88a10] transition-colors shadow-lg shadow-[#D4A017]/10 cursor-pointer"
           >
-            <Plus className="w-4 h-4 stroke-[3]" /> New Reservation
+            <Plus className="w-4 h-4 stroke-[3]" /> {language === 'fr' ? 'Nouvelle Réservation' : 'New Reservation'}
           </button>
         </div>
       </div>
@@ -260,7 +267,7 @@ export const ReservationsModule: React.FC<ReservationsModuleProps> = ({
             type="text"
             value={search}
             onChange={(e) => setSearch(e.target.value)}
-            placeholder="Search booking ID, rider name, bike, or registration..."
+            placeholder={language === 'fr' ? 'Rechercher par ID, nom du pilote, moto ou immatriculation...' : 'Search booking ID, rider name, bike, or registration...'}
             className="w-full pl-10 pr-4 py-2 rounded-xl bg-[#262626] border border-[#333333] text-xs text-[#F4F4F2] focus:outline-none focus:border-[#D4A017]"
           />
         </div>
@@ -271,13 +278,13 @@ export const ReservationsModule: React.FC<ReservationsModuleProps> = ({
             onChange={(e) => setStatusFilter(e.target.value)}
             className="px-3 py-2 rounded-xl bg-[#262626] border border-[#333333] text-xs text-[#F4F4F2] focus:outline-none cursor-pointer"
           >
-            <option value="ALL">All Statuses</option>
-            <option value="Confirmed">Confirmed</option>
-            <option value="Active">Active (Rented)</option>
-            <option value="Pending">Pending</option>
-            <option value="Returned">Returned</option>
-            <option value="Closed">Closed</option>
-            <option value="Cancelled">Cancelled</option>
+            <option value="ALL">{language === 'fr' ? 'Tous les statuts' : 'All Statuses'}</option>
+            <option value="Confirmed">{language === 'fr' ? 'Confirmé' : 'Confirmed'}</option>
+            <option value="Active">{language === 'fr' ? 'Actif (Loué)' : 'Active (Rented)'}</option>
+            <option value="Pending">{language === 'fr' ? 'En attente' : 'Pending'}</option>
+            <option value="Returned">{language === 'fr' ? 'Retourné' : 'Returned'}</option>
+            <option value="Closed">{language === 'fr' ? 'Clôturé' : 'Closed'}</option>
+            <option value="Cancelled">{language === 'fr' ? 'Annulé' : 'Cancelled'}</option>
           </select>
         </div>
       </div>
@@ -286,9 +293,9 @@ export const ReservationsModule: React.FC<ReservationsModuleProps> = ({
       {viewMode === 'list' ? (
         filteredReservations.length === 0 ? (
           <EmptyState
-            title="No reservations found"
-            description="No bookings match your selected criteria."
-            actionLabel="New Reservation"
+            title={language === 'fr' ? 'Aucune réservation trouvée' : 'No reservations found'}
+            description={language === 'fr' ? 'Aucune réservation ne correspond à vos critères.' : 'No bookings match your selected criteria.'}
+            actionLabel={language === 'fr' ? 'Nouvelle Réservation' : 'New Reservation'}
             onAction={handleOpenAdd}
           />
         ) : (
@@ -297,13 +304,13 @@ export const ReservationsModule: React.FC<ReservationsModuleProps> = ({
               <table className="w-full text-left text-xs text-[#F4F4F2]">
                 <thead className="bg-[#222222] border-b border-[#2D2D2D] text-zinc-400 font-bold uppercase tracking-wider">
                   <tr>
-                    <th className="p-4">Booking ID / Status</th>
-                    <th className="p-4">Rider / Customer</th>
-                    <th className="p-4">Motorcycle Assigned</th>
-                    <th className="p-4">Dates & Duration</th>
-                    <th className="p-4">Financial Summary</th>
-                    <th className="p-4">Payment</th>
-                    <th className="p-4 text-right">Handover & Actions</th>
+                    <th className="p-4">{language === 'fr' ? 'ID / STATUT' : 'BOOKING ID / STATUS'}</th>
+                    <th className="p-4">{language === 'fr' ? 'PILOTE / CLIENT' : 'RIDER / CUSTOMER'}</th>
+                    <th className="p-4">{language === 'fr' ? 'MOTO ATTRIBUÉE' : 'MOTORCYCLE ASSIGNED'}</th>
+                    <th className="p-4">{language === 'fr' ? 'DATES & DURÉE' : 'DATES & DURATION'}</th>
+                    <th className="p-4">{language === 'fr' ? 'RÉSUMÉ FINANCIER' : 'FINANCIAL SUMMARY'}</th>
+                    <th className="p-4">{language === 'fr' ? 'PAIEMENT' : 'PAYMENT'}</th>
+                    <th className="p-4 text-right">{language === 'fr' ? 'PRISE EN MAIN & ACTIONS' : 'HANDOVER & ACTIONS'}</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-[#2A2A2A]">
@@ -327,13 +334,15 @@ export const ReservationsModule: React.FC<ReservationsModuleProps> = ({
                       </td>
                       <td className="p-4">
                         <span className="font-semibold block">{res.startDate} → {res.endDate}</span>
-                        <span className="text-[10px] text-zinc-400 font-bold">{res.rentalDays} Rental Days</span>
+                        <span className="text-[10px] text-zinc-400 font-bold">
+                          {res.rentalDays} {language === 'fr' ? 'Jours de location' : 'Rental Days'}
+                        </span>
                       </td>
                       <td className="p-4">
                         <span className="font-bold text-sm text-[#F4F4F2]">{formatCurrency(res.totalPrice, currency)}</span>
                         {res.remainingBalance > 0 && (
                           <span className="text-[10px] text-rose-400 block font-bold">
-                            Due: {formatCurrency(res.remainingBalance, currency)}
+                            {language === 'fr' ? 'Dû : ' : 'Due: '}{formatCurrency(res.remainingBalance, currency)}
                           </span>
                         )}
                       </td>
@@ -345,7 +354,7 @@ export const ReservationsModule: React.FC<ReservationsModuleProps> = ({
                           {res.status === 'Confirmed' && (
                             <button
                               onClick={() => setHandoverRes({ res, mode: 'checkout' })}
-                              className="px-2.5 py-1 rounded-lg bg-[#D4A017] text-[#1C1C1C] font-bold text-[11px] hover:bg-[#b88a10] flex items-center gap-1"
+                              className="px-2.5 py-1 rounded-lg bg-[#D4A017] text-[#1C1C1C] font-bold text-[11px] hover:bg-[#b88a10] flex items-center gap-1 cursor-pointer"
                               title="Perform Handover Check-out"
                             >
                               <Key className="w-3 h-3" /> Check-Out
@@ -354,7 +363,7 @@ export const ReservationsModule: React.FC<ReservationsModuleProps> = ({
                           {res.status === 'Active' && (
                             <button
                               onClick={() => setHandoverRes({ res, mode: 'checkin' })}
-                              className="px-2.5 py-1 rounded-lg bg-sky-600 text-white font-bold text-[11px] hover:bg-sky-500 flex items-center gap-1"
+                              className="px-2.5 py-1 rounded-lg bg-sky-600 text-white font-bold text-[11px] hover:bg-sky-500 flex items-center gap-1 cursor-pointer"
                               title="Perform Return Check-in"
                             >
                               <CheckCircle2 className="w-3 h-3" /> Check-In
@@ -366,13 +375,13 @@ export const ReservationsModule: React.FC<ReservationsModuleProps> = ({
                               setFormData(res);
                               setIsEditModalOpen(true);
                             }}
-                            className="p-1.5 rounded-lg bg-zinc-800 hover:bg-zinc-700 text-zinc-300"
+                            className="p-1.5 rounded-lg bg-zinc-800 hover:bg-zinc-700 text-zinc-300 cursor-pointer"
                           >
                             <Edit className="w-4 h-4" />
                           </button>
                           <button
                             onClick={() => setDeleteResId(res.id)}
-                            className="p-1.5 rounded-lg bg-rose-950 hover:bg-rose-900 text-rose-400"
+                            className="p-1.5 rounded-lg bg-rose-950 hover:bg-rose-900 text-rose-400 cursor-pointer"
                           >
                             <Trash2 className="w-4 h-4" />
                           </button>
@@ -389,10 +398,17 @@ export const ReservationsModule: React.FC<ReservationsModuleProps> = ({
         /* Calendar View */
         <div className="p-6 rounded-2xl bg-[#1C1C1C] border border-[#2D2D2D] shadow-xl space-y-4">
           <h3 className="font-bold text-lg text-[#F4F4F2] flex items-center gap-2">
-            <Calendar className="w-5 h-5 text-[#D4A017]" /> August 2026 Fleet Schedule
+            <Calendar className="w-5 h-5 text-[#D4A017]" /> 
+            {language === 'fr' ? 'Planning de la Flotte - Août 2026' : 'August 2026 Fleet Schedule'}
           </h3>
           <div className="grid grid-cols-7 gap-2 text-center text-xs font-bold text-zinc-400 border-b border-[#2D2D2D] pb-2">
-            <div>Mon</div><div>Tue</div><div>Wed</div><div>Thu</div><div>Fri</div><div>Sat</div><div>Sun</div>
+            <div>{language === 'fr' ? 'Lun' : 'Mon'}</div>
+            <div>{language === 'fr' ? 'Mar' : 'Tue'}</div>
+            <div>{language === 'fr' ? 'Mer' : 'Wed'}</div>
+            <div>{language === 'fr' ? 'Jeu' : 'Thu'}</div>
+            <div>{language === 'fr' ? 'Ven' : 'Fri'}</div>
+            <div>{language === 'fr' ? 'Sam' : 'Sat'}</div>
+            <div>{language === 'fr' ? 'Dim' : 'Sun'}</div>
           </div>
           <div className="grid grid-cols-7 gap-2 text-xs">
             {Array.from({ length: 31 }, (_, i) => {
@@ -425,19 +441,19 @@ export const ReservationsModule: React.FC<ReservationsModuleProps> = ({
         <Modal
           isOpen={!!selectedRes}
           onClose={() => setSelectedRes(null)}
-          title={`Booking Details: ${selectedRes.id}`}
+          title={`${language === 'fr' ? 'Détails de la Réservation :' : 'Booking Details:'} ${selectedRes.id}`}
           subtitle={`Status: ${selectedRes.status} | Source: ${selectedRes.bookingSource}`}
-          maxWidth="3xl"
+          maxWidth="2xl"
         >
           <div className="space-y-4 text-xs">
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 p-4 rounded-xl bg-[#222222] border border-[#333333]">
               <div>
-                <span className="text-zinc-400 block">Rider / Client</span>
+                <span className="text-zinc-400 block">{language === 'fr' ? 'Pilote / Client' : 'Rider / Client'}</span>
                 <span className="font-bold text-sm text-[#F4F4F2]">{selectedRes.clientName}</span>
                 <span className="text-zinc-400 block">{selectedRes.clientPhone} · {selectedRes.clientEmail}</span>
               </div>
               <div>
-                <span className="text-zinc-400 block">Assigned Motorcycle</span>
+                <span className="text-zinc-400 block">{language === 'fr' ? 'Moto Attribuée' : 'Assigned Motorcycle'}</span>
                 <span className="font-bold text-sm text-[#D4A017]">{selectedRes.motorcycleName}</span>
                 <span className="text-zinc-400 block font-mono">Reg: {selectedRes.regNumber}</span>
               </div>
@@ -445,26 +461,36 @@ export const ReservationsModule: React.FC<ReservationsModuleProps> = ({
 
             <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
               <div className="p-3 rounded-xl bg-[#252525] border border-[#333333]">
-                <span className="text-[10px] uppercase font-bold text-zinc-400 block">Dates</span>
+                <span className="text-[10px] uppercase font-bold text-zinc-400 block">{language === 'fr' ? 'Dates' : 'Dates'}</span>
                 <span className="font-bold text-[#F4F4F2]">{selectedRes.startDate} → {selectedRes.endDate}</span>
-                <span className="text-zinc-400 block text-[10px]">{selectedRes.rentalDays} days</span>
+                <span className="text-zinc-400 block text-[10px]">
+                  {selectedRes.rentalDays} {language === 'fr' ? 'jours' : 'days'}
+                </span>
               </div>
               <div className="p-3 rounded-xl bg-[#252525] border border-[#333333]">
-                <span className="text-[10px] uppercase font-bold text-zinc-400 block">Total Price</span>
+                <span className="text-[10px] uppercase font-bold text-zinc-400 block">{language === 'fr' ? 'Prix Total' : 'Total Price'}</span>
                 <span className="font-bold text-[#F4F4F2] text-sm">{formatCurrency(selectedRes.totalPrice, currency)}</span>
-                <span className="text-emerald-400 block text-[10px] font-bold">Paid: {formatCurrency(selectedRes.amountPaid, currency)}</span>
+                <span className="text-emerald-400 block text-[10px] font-bold">
+                  {language === 'fr' ? 'Payé : ' : 'Paid: '}{formatCurrency(selectedRes.amountPaid, currency)}
+                </span>
               </div>
               <div className="p-3 rounded-xl bg-[#252525] border border-[#333333]">
-                <span className="text-[10px] uppercase font-bold text-zinc-400 block">Remaining Balance</span>
+                <span className="text-[10px] uppercase font-bold text-zinc-400 block">{language === 'fr' ? 'Solde Restant' : 'Remaining Balance'}</span>
                 <span className="font-bold text-rose-400 text-sm">{formatCurrency(selectedRes.remainingBalance, currency)}</span>
               </div>
             </div>
 
             {selectedRes.checkoutInfo && (
               <div className="p-4 rounded-xl bg-[#1E293B] border border-sky-800 text-sky-200 space-y-1">
-                <span className="font-bold block text-sky-400">Handover Check-out Record:</span>
-                <p>Checked out at {selectedRes.checkoutInfo.mileage} km | Condition: {selectedRes.checkoutInfo.conditionNotes}</p>
-                <p className="text-[11px] text-sky-300">Customer Sig: {selectedRes.checkoutInfo.customerSignature}</p>
+                <span className="font-bold block text-sky-400">
+                  {language === 'fr' ? 'Enregistrement Check-out :' : 'Handover Check-out Record:'}
+                </span>
+                <p>
+                  {language === 'fr' ? 'Sortie à' : 'Checked out at'} {selectedRes.checkoutInfo.mileage} km | {language === 'fr' ? 'État :' : 'Condition:'} {selectedRes.checkoutInfo.conditionNotes}
+                </p>
+                <p className="text-[11px] text-sky-300">
+                  {language === 'fr' ? 'Signature Client :' : 'Customer Sig:'} {selectedRes.checkoutInfo.customerSignature}
+                </p>
               </div>
             )}
           </div>
@@ -479,8 +505,8 @@ export const ReservationsModule: React.FC<ReservationsModuleProps> = ({
             setIsAddModalOpen(false);
             setIsEditModalOpen(false);
           }}
-          title={isEditModalOpen ? 'Edit Reservation' : 'Create New Reservation'}
-          maxWidth="3xl"
+          title={isEditModalOpen ? (language === 'fr' ? 'Modifier la Réservation' : 'Edit Reservation') : (language === 'fr' ? 'Créer une Nouvelle Réservation' : 'Create New Reservation')}
+          maxWidth="2xl"
         >
           <form onSubmit={handleSave} className="space-y-4 text-xs">
             {/* Error Alert for Double Booking */}
@@ -493,12 +519,14 @@ export const ReservationsModule: React.FC<ReservationsModuleProps> = ({
 
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <div>
-                <label className="font-bold text-zinc-300 block mb-1">Select Rider / Client *</label>
+                <label className="font-bold text-zinc-300 block mb-1">
+                  {language === 'fr' ? 'Sélectionner un Pilote / Client *' : 'Select Rider / Client *'}
+                </label>
                 <select
                   required
                   value={formData.clientId || ''}
                   onChange={(e) => setFormData({ ...formData, clientId: e.target.value })}
-                  className="w-full p-2.5 rounded-xl bg-[#262626] border border-[#333333] text-[#F4F4F2]"
+                  className="w-full p-2.5 rounded-xl bg-[#262626] border border-[#333333] text-[#F4F4F2] cursor-pointer"
                 >
                   {clients.map((c) => (
                     <option key={c.id} value={c.id}>{c.fullName} ({c.nationality})</option>
@@ -507,12 +535,14 @@ export const ReservationsModule: React.FC<ReservationsModuleProps> = ({
               </div>
 
               <div>
-                <label className="font-bold text-zinc-300 block mb-1">Select Motorcycle *</label>
+                <label className="font-bold text-zinc-300 block mb-1">
+                  {language === 'fr' ? 'Sélectionner une Moto *' : 'Select Motorcycle *'}
+                </label>
                 <select
                   required
                   value={formData.motorcycleId || ''}
                   onChange={(e) => setFormData({ ...formData, motorcycleId: e.target.value })}
-                  className="w-full p-2.5 rounded-xl bg-[#262626] border border-[#333333] text-[#F4F4F2]"
+                  className="w-full p-2.5 rounded-xl bg-[#262626] border border-[#333333] text-[#F4F4F2] cursor-pointer"
                 >
                   {motorcycles.map((m) => (
                     <option key={m.id} value={m.id}>{m.brand} {m.model} ({m.registrationNumber}) - {formatCurrency(m.dailyPrice, currency)}/day</option>
@@ -523,7 +553,9 @@ export const ReservationsModule: React.FC<ReservationsModuleProps> = ({
 
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <div>
-                <label className="font-bold text-zinc-300 block mb-1">Start Date *</label>
+                <label className="font-bold text-zinc-300 block mb-1">
+                  {language === 'fr' ? 'Date de Début *' : 'Start Date *'}
+                </label>
                 <input
                   type="date"
                   required
@@ -533,7 +565,9 @@ export const ReservationsModule: React.FC<ReservationsModuleProps> = ({
                 />
               </div>
               <div>
-                <label className="font-bold text-zinc-300 block mb-1">End Date *</label>
+                <label className="font-bold text-zinc-300 block mb-1">
+                  {language === 'fr' ? 'Date de Fin *' : 'End Date *'}
+                </label>
                 <input
                   type="date"
                   required
@@ -546,7 +580,9 @@ export const ReservationsModule: React.FC<ReservationsModuleProps> = ({
 
             <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
               <div>
-                <label className="font-bold text-zinc-300 block mb-1">Base Rental Price (MAD)</label>
+                <label className="font-bold text-zinc-300 block mb-1">
+                  {language === 'fr' ? 'Prix de Location de Base (MAD)' : 'Base Rental Price (MAD)'}
+                </label>
                 <input
                   type="number"
                   value={formData.basePrice || ''}
@@ -555,7 +591,9 @@ export const ReservationsModule: React.FC<ReservationsModuleProps> = ({
                 />
               </div>
               <div>
-                <label className="font-bold text-zinc-300 block mb-1">Amount Paid Deposit (MAD)</label>
+                <label className="font-bold text-zinc-300 block mb-1">
+                  {language === 'fr' ? 'Acompte Payé (MAD)' : 'Amount Paid Deposit (MAD)'}
+                </label>
                 <input
                   type="number"
                   value={formData.amountPaid || ''}
@@ -564,18 +602,20 @@ export const ReservationsModule: React.FC<ReservationsModuleProps> = ({
                 />
               </div>
               <div>
-                <label className="font-bold text-zinc-300 block mb-1">Booking Status</label>
+                <label className="font-bold text-zinc-300 block mb-1">
+                  {language === 'fr' ? 'Statut de la Réservation' : 'Booking Status'}
+                </label>
                 <select
                   value={formData.status || 'Confirmed'}
                   onChange={(e) => setFormData({ ...formData, status: e.target.value as any })}
-                  className="w-full p-2.5 rounded-xl bg-[#262626] border border-[#333333] text-[#F4F4F2]"
+                  className="w-full p-2.5 rounded-xl bg-[#262626] border border-[#333333] text-[#F4F4F2] cursor-pointer"
                 >
-                  <option value="Confirmed">Confirmed</option>
-                  <option value="Active">Active (Rented)</option>
-                  <option value="Pending">Pending</option>
-                  <option value="Returned">Returned</option>
-                  <option value="Closed">Closed</option>
-                  <option value="Cancelled">Cancelled</option>
+                  <option value="Confirmed">{language === 'fr' ? 'Confirmé' : 'Confirmed'}</option>
+                  <option value="Active">{language === 'fr' ? 'Actif (Loué)' : 'Active (Rented)'}</option>
+                  <option value="Pending">{language === 'fr' ? 'En attente' : 'Pending'}</option>
+                  <option value="Returned">{language === 'fr' ? 'Retourné' : 'Returned'}</option>
+                  <option value="Closed">{language === 'fr' ? 'Clôturé' : 'Closed'}</option>
+                  <option value="Cancelled">{language === 'fr' ? 'Annulé' : 'Cancelled'}</option>
                 </select>
               </div>
             </div>
@@ -587,15 +627,15 @@ export const ReservationsModule: React.FC<ReservationsModuleProps> = ({
                   setIsAddModalOpen(false);
                   setIsEditModalOpen(false);
                 }}
-                className="px-4 py-2 rounded-xl font-bold bg-zinc-800 text-zinc-300"
+                className="px-4 py-2 rounded-xl font-bold bg-zinc-800 text-zinc-300 cursor-pointer"
               >
-                Cancel
+                {language === 'fr' ? 'Annuler' : 'Cancel'}
               </button>
               <button
                 type="submit"
-                className="px-5 py-2 rounded-xl font-bold bg-[#D4A017] text-[#1C1C1C]"
+                className="px-5 py-2 rounded-xl font-bold bg-[#D4A017] text-[#1C1C1C] cursor-pointer"
               >
-                Save Reservation
+                {language === 'fr' ? 'Enregistrer la Réservation' : 'Save Reservation'}
               </button>
             </div>
           </form>
@@ -618,10 +658,12 @@ export const ReservationsModule: React.FC<ReservationsModuleProps> = ({
         isOpen={!!deleteResId}
         onClose={() => setDeleteResId(null)}
         onConfirm={handleDelete}
-        title="Cancel & Delete Reservation?"
-        message="Are you sure you want to delete this reservation record?"
+        title={language === 'fr' ? 'Annuler & Supprimer la Réservation ?' : 'Cancel & Delete Reservation?'}
+        message={language === 'fr' ? 'Êtes-vous sûr de vouloir supprimer cet enregistrement de réservation ?' : 'Are you sure you want to delete this reservation record?'}
         isDestructive
       />
     </div>
   );
 };
+
+export default ReservationsModule;
