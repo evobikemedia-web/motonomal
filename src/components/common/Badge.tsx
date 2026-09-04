@@ -1,4 +1,5 @@
 import React from 'react';
+import { useLanguage } from '../../context/LanguageContext';
 
 interface BadgeProps {
   status: string;
@@ -6,6 +7,49 @@ interface BadgeProps {
 }
 
 export const Badge: React.FC<BadgeProps> = ({ status, size = 'md' }) => {
+  const { language } = useLanguage();
+
+  const translateStatus = (st: string) => {
+    if (language !== 'fr') return st;
+
+    switch (st.toLowerCase()) {
+      // Paiements & Statuts généraux
+      case 'paid': return 'Payé';
+      case 'partial': return 'Partiel';
+      case 'pending': return 'En attente';
+      case 'quote': return 'Devis';
+      case 'inquiry': return 'Demande';
+      case 'draft': return 'Brouillon';
+      case 'scheduled': return 'Planifié';
+      case 'completed': return 'Terminé';
+      case 'open': return 'Ouvert';
+      
+      // Réservations & Véhicules
+      case 'confirmed': return 'Confirmé';
+      case 'active': return 'Actif';
+      case 'rented': return 'Loué';
+      case 'available': return 'Disponible';
+      case 'reserved': return 'Réservé';
+      case 'ready': return 'Prêt';
+      case 'in progress': return 'En cours';
+      case 'under review': return 'En révision';
+      case 'maintenance': return 'En maintenance';
+      case 'damaged': return 'Endommagé';
+      case 'refunded': return 'Remboursé';
+      case 'overdue': return 'En retard';
+      case 'needs repair': return 'Réparation nécessaire';
+      case 'out of service': return 'Hors service';
+      case 'cancelled': return 'Annulé';
+      case 'retired': return 'Retiré';
+      case 'lost': return 'Perdu';
+      case 'sold': return 'Vendu';
+      case 'returned': return 'Retourné';
+      case 'closed': return 'Clôturé';
+      
+      default: return st;
+    }
+  };
+
   let colorClass = 'bg-gray-100 text-gray-700 border-gray-200';
 
   const normalized = status.toLowerCase();
@@ -31,7 +75,9 @@ export const Badge: React.FC<BadgeProps> = ({ status, size = 'md' }) => {
   return (
     <span className={`inline-flex items-center gap-1.5 rounded-full border ${colorClass} ${sizeClass} tracking-wide whitespace-nowrap`}>
       <span className="h-1.5 w-1.5 rounded-full bg-current"></span>
-      {status}
+      {translateStatus(status)}
     </span>
   );
 };
+
+export default Badge;
