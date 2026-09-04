@@ -74,7 +74,7 @@
   }
 
   .card-hover-premium {
-    @apply transition-all duration-300 ease-out;
+    transition: all 300ms ease-out;
   }
 
   .card-hover-premium:hover {
