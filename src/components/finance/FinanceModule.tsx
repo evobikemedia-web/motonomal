@@ -122,10 +122,10 @@ export const FinanceModule: React.FC<FinanceModuleProps> = ({
 
       {/* Header & Controls */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-        <div className="flex items-center gap-2 bg-[#262626] border border-[#333333] p-1 rounded-xl text-xs font-bold">
+        <div className="flex items-center gap-2 bg-[#262626] border border-[#333333] p-1 rounded-xl text-xs font-bold overflow-x-auto custom-scrollbar">
           <button
             onClick={() => setActiveTab('revenues')}
-            className={`px-4 py-2 rounded-lg transition-colors ${
+            className={`px-4 py-2 rounded-lg transition-colors whitespace-nowrap ${
               activeTab === 'revenues' ? 'bg-[#D4A017] text-[#1C1C1C]' : 'text-zinc-400 hover:text-white'
             }`}
           >
@@ -133,7 +133,7 @@ export const FinanceModule: React.FC<FinanceModuleProps> = ({
           </button>
           <button
             onClick={() => setActiveTab('expenses')}
-            className={`px-4 py-2 rounded-lg transition-colors ${
+            className={`px-4 py-2 rounded-lg transition-colors whitespace-nowrap ${
               activeTab === 'expenses' ? 'bg-[#D4A017] text-[#1C1C1C]' : 'text-zinc-400 hover:text-white'
             }`}
           >
@@ -141,7 +141,7 @@ export const FinanceModule: React.FC<FinanceModuleProps> = ({
           </button>
           <button
             onClick={() => setActiveTab('profitability')}
-            className={`px-4 py-2 rounded-lg transition-colors ${
+            className={`px-4 py-2 rounded-lg transition-colors whitespace-nowrap ${
               activeTab === 'profitability' ? 'bg-[#D4A017] text-[#1C1C1C]' : 'text-zinc-400 hover:text-white'
             }`}
           >
@@ -172,74 +172,78 @@ export const FinanceModule: React.FC<FinanceModuleProps> = ({
       {/* Revenues List */}
       {activeTab === 'revenues' && (
         <div className="rounded-2xl border border-[#2D2D2D] bg-[#1C1C1C] overflow-hidden shadow-xl">
-          <table className="w-full text-left text-xs text-[#F4F4F2]">
-            <thead className="bg-[#222222] border-b border-[#2D2D2D] text-zinc-400 font-bold uppercase">
-              <tr>
-                <th className="p-4">{language === 'fr' ? 'Date' : 'Date'}</th>
-                <th className="p-4">{language === 'fr' ? 'Catégorie' : 'Category'}</th>
-                <th className="p-4">{language === 'fr' ? 'Description' : 'Description'}</th>
-                <th className="p-4">{language === 'fr' ? 'Mode de Paiement' : 'Payment Method'}</th>
-                <th className="p-4 font-bold">{language === 'fr' ? 'Montant' : 'Amount'}</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-[#2A2A2A]">
-              {revenues.map((rev) => (
-                <tr key={rev.id} className="hover:bg-[#252525]">
-                  <td className="p-4 font-mono text-zinc-400">{rev.date}</td>
-                  <td className="p-4 font-bold text-[#D4A017]">
-                    {/* Optionally translate common categories directly if needed */}
-                    {language === 'fr' && rev.category === 'Rental' ? 'Location' : rev.category}
-                  </td>
-                  <td className="p-4 font-semibold">{rev.description}</td>
-                  <td className="p-4 text-zinc-300">
-                    {language === 'fr' && rev.paymentMethod === 'Card' ? 'Carte' : 
-                     language === 'fr' && rev.paymentMethod === 'Bank Transfer' ? 'Virement' : 
-                     language === 'fr' && rev.paymentMethod === 'Cash' ? 'Espèces' : rev.paymentMethod}
-                  </td>
-                  <td className="p-4 font-bold text-emerald-400">{formatCurrency(rev.amount, currency)}</td>
+          <div className="w-full overflow-x-auto custom-scrollbar pb-2">
+            <table className="w-full text-left text-xs text-[#F4F4F2] min-w-[800px]">
+              <thead className="bg-[#222222] border-b border-[#2D2D2D] text-zinc-400 font-bold uppercase">
+                <tr>
+                  <th className="p-4">{language === 'fr' ? 'Date' : 'Date'}</th>
+                  <th className="p-4">{language === 'fr' ? 'Catégorie' : 'Category'}</th>
+                  <th className="p-4">{language === 'fr' ? 'Description' : 'Description'}</th>
+                  <th className="p-4">{language === 'fr' ? 'Mode de Paiement' : 'Payment Method'}</th>
+                  <th className="p-4 font-bold">{language === 'fr' ? 'Montant' : 'Amount'}</th>
                 </tr>
-              ))}
-            </tbody>
-          </table>
+              </thead>
+              <tbody className="divide-y divide-[#2A2A2A]">
+                {revenues.map((rev) => (
+                  <tr key={rev.id} className="hover:bg-[#252525]">
+                    <td className="p-4 font-mono text-zinc-400">{rev.date}</td>
+                    <td className="p-4 font-bold text-[#D4A017]">
+                      {/* Optionally translate common categories directly if needed */}
+                      {language === 'fr' && rev.category === 'Rental' ? 'Location' : rev.category}
+                    </td>
+                    <td className="p-4 font-semibold">{rev.description}</td>
+                    <td className="p-4 text-zinc-300">
+                      {language === 'fr' && rev.paymentMethod === 'Card' ? 'Carte' : 
+                       language === 'fr' && rev.paymentMethod === 'Bank Transfer' ? 'Virement' : 
+                       language === 'fr' && rev.paymentMethod === 'Cash' ? 'Espèces' : rev.paymentMethod}
+                    </td>
+                    <td className="p-4 font-bold text-emerald-400">{formatCurrency(rev.amount, currency)}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
         </div>
       )}
 
       {/* Expenses List */}
       {activeTab === 'expenses' && (
         <div className="rounded-2xl border border-[#2D2D2D] bg-[#1C1C1C] overflow-hidden shadow-xl">
-          <table className="w-full text-left text-xs text-[#F4F4F2]">
-            <thead className="bg-[#222222] border-b border-[#2D2D2D] text-zinc-400 font-bold uppercase">
-              <tr>
-                <th className="p-4">{language === 'fr' ? 'Date' : 'Date'}</th>
-                <th className="p-4">{language === 'fr' ? 'Catégorie' : 'Category'}</th>
-                <th className="p-4">{language === 'fr' ? 'Description & Fournisseur' : 'Description & Supplier'}</th>
-                <th className="p-4">{language === 'fr' ? 'Mode de Paiement' : 'Payment Method'}</th>
-                <th className="p-4 font-bold">{language === 'fr' ? 'Montant' : 'Amount'}</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-[#2A2A2A]">
-              {expenses.map((exp) => (
-                <tr key={exp.id} className="hover:bg-[#252525]">
-                  <td className="p-4 font-mono text-zinc-400">{exp.date}</td>
-                  <td className="p-4 font-bold text-rose-400">
-                    {language === 'fr' && exp.category === 'Maintenance' ? 'Entretien' : 
-                     language === 'fr' && exp.category === 'Fuel' ? 'Carburant' : 
-                     language === 'fr' && exp.category === 'Insurance' ? 'Assurance' : exp.category}
-                  </td>
-                  <td className="p-4 font-semibold">
-                    {exp.description}
-                    {exp.supplier && <span className="text-zinc-400 block text-[10px]">{language === 'fr' ? 'Fournisseur :' : 'Supplier:'} {exp.supplier}</span>}
-                  </td>
-                  <td className="p-4 text-zinc-300">
-                    {language === 'fr' && exp.paymentMethod === 'Company Card' ? 'Carte Pro' : 
-                     language === 'fr' && exp.paymentMethod === 'Bank Transfer' ? 'Virement' : 
-                     language === 'fr' && exp.paymentMethod === 'Cash' ? 'Espèces' : exp.paymentMethod}
-                  </td>
-                  <td className="p-4 font-bold text-rose-400">-{formatCurrency(exp.amount, currency)}</td>
+          <div className="w-full overflow-x-auto custom-scrollbar pb-2">
+            <table className="w-full text-left text-xs text-[#F4F4F2] min-w-[800px]">
+              <thead className="bg-[#222222] border-b border-[#2D2D2D] text-zinc-400 font-bold uppercase">
+                <tr>
+                  <th className="p-4">{language === 'fr' ? 'Date' : 'Date'}</th>
+                  <th className="p-4">{language === 'fr' ? 'Catégorie' : 'Category'}</th>
+                  <th className="p-4">{language === 'fr' ? 'Description & Fournisseur' : 'Description & Supplier'}</th>
+                  <th className="p-4">{language === 'fr' ? 'Mode de Paiement' : 'Payment Method'}</th>
+                  <th className="p-4 font-bold">{language === 'fr' ? 'Montant' : 'Amount'}</th>
                 </tr>
-              ))}
-            </tbody>
-          </table>
+              </thead>
+              <tbody className="divide-y divide-[#2A2A2A]">
+                {expenses.map((exp) => (
+                  <tr key={exp.id} className="hover:bg-[#252525]">
+                    <td className="p-4 font-mono text-zinc-400">{exp.date}</td>
+                    <td className="p-4 font-bold text-rose-400">
+                      {language === 'fr' && exp.category === 'Maintenance' ? 'Entretien' : 
+                       language === 'fr' && exp.category === 'Fuel' ? 'Carburant' : 
+                       language === 'fr' && exp.category === 'Insurance' ? 'Assurance' : exp.category}
+                    </td>
+                    <td className="p-4 font-semibold">
+                      {exp.description}
+                      {exp.supplier && <span className="text-zinc-400 block text-[10px]">{language === 'fr' ? 'Fournisseur :' : 'Supplier:'} {exp.supplier}</span>}
+                    </td>
+                    <td className="p-4 text-zinc-300">
+                      {language === 'fr' && exp.paymentMethod === 'Company Card' ? 'Carte Pro' : 
+                       language === 'fr' && exp.paymentMethod === 'Bank Transfer' ? 'Virement' : 
+                       language === 'fr' && exp.paymentMethod === 'Cash' ? 'Espèces' : exp.paymentMethod}
+                    </td>
+                    <td className="p-4 font-bold text-rose-400">-{formatCurrency(exp.amount, currency)}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
         </div>
       )}
 
