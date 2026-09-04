@@ -2,11 +2,10 @@ import React from 'react';
 import { 
   LayoutDashboard, Users, Calendar, Bike, Wrench, Compass, 
   DollarSign, TrendingUp, ShieldCheck, Building2, Truck, 
-  BarChart3, FileCode, Settings, ChevronLeft, ChevronRight, LogOut, ShieldAlert
+  BarChart3, FileCode, Settings, ChevronLeft, ChevronRight, LogOut 
 } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
 import { useLanguage } from '../../context/LanguageContext';
-import { UserRole } from '../../types';
 import { MountainLogoSVG } from '../common/Logo';
 
 interface SidebarProps {
@@ -22,24 +21,25 @@ export const Sidebar: React.FC<SidebarProps> = ({
   collapsed,
   setCollapsed,
 }) => {
-  const { user, login, logout, hasPermission } = useAuth();
+  const { user, logout } = useAuth();
   const { t } = useLanguage();
 
+  // Définition centralisée des accès par rôle pour sécuriser l'affichage
   const navItems = [
-    { id: 'dashboard', label: t('nav.dashboard'), icon: LayoutDashboard, module: 'dashboard' },
-    { id: 'clients', label: t('nav.clients'), icon: Users, module: 'clients' },
-    { id: 'reservations', label: t('nav.reservations'), icon: Calendar, module: 'reservations' },
-    { id: 'fleet', label: t('nav.fleet'), icon: Bike, module: 'fleet' },
-    { id: 'maintenance', label: t('nav.maintenance'), icon: Wrench, module: 'maintenance' },
-    { id: 'tours', label: t('nav.tours'), icon: Compass, module: 'tours' },
-    { id: 'finance', label: t('nav.finance'), icon: DollarSign, module: 'finance' },
-    { id: 'investments', label: t('nav.investments'), icon: TrendingUp, module: 'investments' },
-    { id: 'equipment', label: t('nav.equipment'), icon: ShieldCheck, module: 'equipment' },
-    { id: 'agencies', label: t('nav.agencies'), icon: Building2, module: 'agencies' },
-    { id: 'suppliers', label: t('nav.suppliers'), icon: Truck, module: 'suppliers' },
-    { id: 'reports', label: t('nav.reports'), icon: BarChart3, module: 'reports' },
-    { id: 'audit', label: t('nav.audit'), icon: FileCode, module: 'audit' },
-    { id: 'settings', label: t('nav.settings'), icon: Settings, module: 'settings' },
+    { id: 'dashboard', label: t('nav.dashboard'), icon: LayoutDashboard, roles: ['ADMIN', 'MANAGER'] },
+    { id: 'clients', label: t('nav.clients'), icon: Users, roles: ['ADMIN', 'MANAGER', 'STAFF'] },
+    { id: 'reservations', label: t('nav.reservations'), icon: Calendar, roles: ['ADMIN', 'MANAGER', 'STAFF'] },
+    { id: 'fleet', label: t('nav.fleet'), icon: Bike, roles: ['ADMIN', 'MANAGER', 'STAFF'] },
+    { id: 'maintenance', label: t('nav.maintenance'), icon: Wrench, roles: ['ADMIN', 'MANAGER', 'STAFF'] },
+    { id: 'tours', label: t('nav.tours'), icon: Compass, roles: ['ADMIN', 'MANAGER', 'STAFF'] },
+    { id: 'finance', label: t('nav.finance'), icon: DollarSign, roles: ['ADMIN', 'MANAGER', 'ACCOUNTING'] },
+    { id: 'investments', label: t('nav.investments'), icon: TrendingUp, roles: ['ADMIN'] },
+    { id: 'equipment', label: t('nav.equipment'), icon: ShieldCheck, roles: ['ADMIN', 'MANAGER', 'STAFF'] },
+    { id: 'agencies', label: t('nav.agencies'), icon: Building2, roles: ['ADMIN', 'MANAGER'] },
+    { id: 'suppliers', label: t('nav.suppliers'), icon: Truck, roles: ['ADMIN', 'MANAGER', 'ACCOUNTING'] },
+    { id: 'reports', label: t('nav.reports'), icon: BarChart3, roles: ['ADMIN', 'MANAGER', 'ACCOUNTING'] },
+    { id: 'audit', label: t('nav.audit'), icon: FileCode, roles: ['ADMIN'] },
+    { id: 'settings', label: t('nav.settings'), icon: Settings, roles: ['ADMIN'] },
   ];
 
   return (
@@ -78,10 +78,13 @@ export const Sidebar: React.FC<SidebarProps> = ({
         </button>
       </div>
 
-      {/* Navigation List */}
+      {/* Navigation List - Filtrée dynamiquement par rôle */}
       <div className="flex-1 overflow-y-auto px-3 py-4 space-y-1.5 custom-scrollbar">
         {navItems.map((item) => {
-          if (!hasPermission(item.module)) return null;
+          // On vérifie si l'utilisateur actuel a le droit de voir cet onglet
+          const isAllowed = user && item.roles.includes(user.role);
+          if (!isAllowed) return null;
+
           const Icon = item.icon;
           const isActive = activeTab === item.id;
 
@@ -103,54 +106,28 @@ export const Sidebar: React.FC<SidebarProps> = ({
         })}
       </div>
 
-      {/* Role Switcher & User Profile */}
-      <div className="p-3 border-t border-[#2D2D2D] bg-[#161616] space-y-3">
-        {!collapsed && user && (
-          <div className="bg-[#242424] rounded-xl p-2.5 border border-[#333333]">
-            <div className="flex items-center justify-between mb-2">
-              <span className="text-[10px] uppercase tracking-wider font-bold text-zinc-400 flex items-center gap-1">
-                <ShieldAlert className="w-3 h-3 text-[#D4A017]" /> Role Switcher
-              </span>
-              <span className="text-xs px-2 py-0.5 rounded-full font-bold bg-[#D4A017]/20 text-[#D4A017] border border-[#D4A017]/40">
-                {user.role}
-              </span>
-            </div>
-            <div className="grid grid-cols-2 gap-1 text-[11px]">
-              {(['ADMIN', 'MANAGER', 'STAFF', 'ACCOUNTING'] as UserRole[]).map((r) => (
-                <button
-                  key={r}
-                  onClick={() => login(r)}
-                  className={`px-2 py-1 rounded font-semibold transition-colors ${
-                    user.role === r 
-                      ? 'bg-[#D4A017] text-[#1C1C1C]' 
-                      : 'bg-zinc-800 text-zinc-300 hover:bg-zinc-700'
-                  }`}
-                >
-                  {r}
-                </button>
-              ))}
-            </div>
-          </div>
-        )}
-
+      {/* User Profile & Logout (Role Switcher retiré) */}
+      <div className="p-3 border-t border-[#2D2D2D] bg-[#161616]">
         <div className="flex items-center justify-between">
-          <div className="flex items-center gap-2 overflow-hidden">
+          <div className="flex items-center gap-3 overflow-hidden">
             <img
               src={user?.avatarUrl || 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=200&auto=format&fit=crop&q=80'}
               alt="User Avatar"
-              className="w-9 h-9 rounded-full object-cover border border-[#D4A017]/60 shrink-0"
+              className="w-10 h-10 rounded-full object-cover border-2 border-[#2D2D2D] shrink-0"
             />
             {!collapsed && (
               <div className="flex flex-col truncate">
-                <span className="text-xs font-bold text-white truncate">{user?.displayName}</span>
-                <span className="text-[10px] text-zinc-400 truncate">{user?.email}</span>
+                <span className="text-xs font-bold text-white truncate">{user?.displayName || 'Utilisateur'}</span>
+                <span className="text-[10px] font-black text-[#D4A017] tracking-wider uppercase mt-0.5">
+                  {user?.role || 'STAFF'}
+                </span>
               </div>
             )}
           </div>
           <button
             onClick={logout}
-            className="p-2 text-zinc-400 hover:text-rose-400 hover:bg-zinc-800 rounded-lg transition-colors"
-            title="Logout"
+            className="p-2.5 text-zinc-400 hover:text-rose-400 hover:bg-rose-950/30 rounded-xl transition-colors"
+            title="Se déconnecter"
           >
             <LogOut className="w-4 h-4" />
           </button>

@@ -9,26 +9,20 @@ interface AuthContextType {
   hasPermission: (moduleName: string) => boolean;
 }
 
-const defaultUser: UserProfile = {
-  uid: 'user-admin-1',
-  email: 'admin@motonomad.ma',
-  displayName: 'Mehdi Ouhssain (Admin)',
-  role: 'ADMIN',
-  avatarUrl: 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=200&auto=format&fit=crop&q=80',
-};
-
+// L'état par défaut doit être "null" pour forcer la page de connexion
 const AuthContext = createContext<AuthContextType>({
-  user: defaultUser,
+  user: null, 
   loading: false,
   login: () => {},
   logout: () => {},
-  hasPermission: () => true,
+  hasPermission: () => false, // Par défaut, on bloque tout
 });
 
 export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
+  // On initialise à null s'il n'y a pas de session sauvegardée
   const [user, setUser] = useState<UserProfile | null>(() => {
     const saved = localStorage.getItem('motonomad_active_user');
-    return saved ? JSON.parse(saved) : defaultUser;
+    return saved ? JSON.parse(saved) : null; 
   });
   const [loading, setLoading] = useState(false);
 
@@ -102,7 +96,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         return ['ADMIN', 'MANAGER', 'ACCOUNTING'].includes(user.role);
       case 'settings':
       case 'audit':
-        return user.role === 'ADMIN';
+        return (user.role as string) === 'ADMIN';
       default:
         return true;
     }

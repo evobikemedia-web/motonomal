@@ -6,6 +6,10 @@ import { Header } from './components/layout/Header';
 import { MobileNav } from './components/layout/MobileNav';
 import { dbStore } from './services/db';
 
+// Auth Modules
+import { Login } from './components/auth/Login';
+import { Register } from './components/auth/Register';
+
 // Domain Modules
 import { ExecutiveDashboard } from './components/dashboard/ExecutiveDashboard';
 import { ClientsModule } from './components/clients/ClientsModule';
@@ -25,12 +29,22 @@ import { SettingsModule } from './components/settings/SettingsModule';
 // Types
 import { 
   Client, Motorcycle, Reservation, Revenue, Expense, 
-  MaintenanceRecord, Investment, Tour, EquipmentItem, Agency, Supplier, AuditLog, DateFilterRange 
+  MaintenanceRecord, Investment, Tour, EquipmentItem, Agency, Supplier, AuditLog, DateFilterRange, UserRole 
 } from './types';
 
 const MainAppContent: React.FC = () => {
-  const { user, hasPermission } = useAuth();
-  const [activeTab, setActiveTab] = useState<string>('dashboard');
+  const { user, login, hasPermission } = useAuth();
+  
+  const [authView, setAuthView] = useState<'login' | 'register'>('login');
+  
+  // Initialisation dynamique de l'onglet actif selon le rôle de l'utilisateur connecté
+  const [activeTab, setActiveTab] = useState<string>(() => {
+    if (!user) return 'dashboard';
+    if (user.role === 'STAFF') return 'clients';
+    if (user.role === 'ACCOUNTING') return 'finance';
+    return 'dashboard';
+  });
+
   const [currency, setCurrency] = useState<'MAD' | 'EUR' | 'USD'>('MAD');
   const [dateRange, setDateRange] = useState<DateFilterRange>('this_month');
   const [customStartDate, setCustomStartDate] = useState<string>(() => new Date().toISOString().split('T')[0]);
@@ -84,23 +98,52 @@ const MainAppContent: React.FC = () => {
     loadData();
   };
 
-  // Quick action handler updated to match Header keys ('reservation' | 'client' | 'motorcycle')
   const handleQuickAction = (action: 'reservation' | 'client' | 'motorcycle') => {
-    if (action === 'reservation') {
+    if (action === 'reservation' && hasPermission('reservations')) {
       setActiveTab('reservations');
       setQuickActionModal('add_res');
-    } else if (action === 'client') {
+    } else if (action === 'client' && hasPermission('clients')) {
       setActiveTab('clients');
       setQuickActionModal('add_client');
-    } else if (action === 'motorcycle') {
+    } else if (action === 'motorcycle' && hasPermission('fleet')) {
       setActiveTab('fleet');
       setQuickActionModal('add_bike');
     }
   };
 
+  // --- GESTION DE LA CONNEXION ---
+  if (!user) {
+    if (authView === 'login') {
+      return (
+        <Login 
+          onLoginSuccess={(roleStr) => {
+            const role = roleStr as UserRole;
+            login(role); // Enregistre l'utilisateur dans le AuthContext global
+
+            // Redirection intelligente selon le profil pour éviter l'écran noir
+            if (role === 'STAFF') {
+              setActiveTab('clients');
+            } else if (role === 'ACCOUNTING') {
+              setActiveTab('finance');
+            } else {
+              setActiveTab('dashboard');
+            }
+          }} 
+          onNavigateRegister={() => setAuthView('register')} 
+        />
+      );
+    }
+    return (
+      <Register 
+        onRegisterSuccess={() => setAuthView('login')} 
+        onNavigateLogin={() => setAuthView('login')} 
+      />
+    );
+  }
+
+  // --- ESPACE DE TRAVAIL PRINCIPAL SÉCURISÉ ---
   return (
     <div className="flex h-screen bg-[#141414] text-[#F4F4F2] font-sans overflow-hidden select-none pb-16 md:pb-0">
-      {/* Navigation Sidebar (Desktop) */}
       <Sidebar
         activeTab={activeTab}
         setActiveTab={(tab) => {
@@ -111,9 +154,7 @@ const MainAppContent: React.FC = () => {
         setCollapsed={setSidebarCollapsed}
       />
 
-      {/* Main Right Workspace Area */}
       <div className="flex-1 flex flex-col h-full overflow-hidden">
-        {/* Top Header */}
         <Header
           searchQuery={searchQuery}
           setSearchQuery={setSearchQuery}
@@ -129,9 +170,7 @@ const MainAppContent: React.FC = () => {
           onQuickAction={handleQuickAction}
         />
 
-        {/* Dynamic Workspace Container */}
-        <main className="flex-1 overflow-y-auto p-3 sm:p-5 lg:p-8 space-y-6">
-          {/* Executive Dashboard */}
+        <main className="flex-1 overflow-y-auto p-3 sm:p-5 lg:p-8 space-y-6 custom-scrollbar">
           {activeTab === 'dashboard' && hasPermission('dashboard') && (
             <ExecutiveDashboard
               searchQuery={searchQuery}
@@ -157,7 +196,6 @@ const MainAppContent: React.FC = () => {
             />
           )}
 
-          {/* Clients Management */}
           {activeTab === 'clients' && hasPermission('clients') && (
             <ClientsModule
               clients={clients}
@@ -168,7 +206,6 @@ const MainAppContent: React.FC = () => {
             />
           )}
 
-          {/* Motorcycle Fleet */}
           {activeTab === 'fleet' && hasPermission('fleet') && (
             <FleetModule
               motorcycles={motorcycles}
@@ -180,7 +217,6 @@ const MainAppContent: React.FC = () => {
             />
           )}
 
-          {/* Reservations & Handovers */}
           {activeTab === 'reservations' && hasPermission('reservations') && (
             <ReservationsModule
               reservations={reservations}
@@ -192,7 +228,6 @@ const MainAppContent: React.FC = () => {
             />
           )}
 
-          {/* Financial Management */}
           {activeTab === 'finance' && hasPermission('finance') && (
             <FinanceModule
               revenues={revenues}
@@ -204,62 +239,30 @@ const MainAppContent: React.FC = () => {
             />
           )}
 
-          {/* Investments & Simulator */}
           {activeTab === 'investments' && hasPermission('investments') && (
-            <InvestmentsModule
-              investments={investments}
-              currency={currency}
-              onUpdate={loadData}
-            />
+            <InvestmentsModule investments={investments} currency={currency} onUpdate={loadData} />
           )}
 
-          {/* Tours Management */}
           {activeTab === 'tours' && hasPermission('tours') && (
-            <ToursModule
-              tours={tours}
-              currency={currency}
-              onUpdate={loadData}
-            />
+            <ToursModule tours={tours} currency={currency} onUpdate={loadData} />
           )}
 
-          {/* Maintenance & Workshop */}
           {activeTab === 'maintenance' && hasPermission('maintenance') && (
-            <MaintenanceModule
-              maintenance={maintenance}
-              motorcycles={motorcycles}
-              currency={currency}
-              onUpdate={loadData}
-            />
+            <MaintenanceModule maintenance={maintenance} motorcycles={motorcycles} currency={currency} onUpdate={loadData} />
           )}
 
-          {/* Riding Gear & Equipment */}
           {activeTab === 'equipment' && hasPermission('equipment') && (
-            <EquipmentModule
-              equipment={equipment}
-              currency={currency}
-              onUpdate={loadData}
-            />
+            <EquipmentModule equipment={equipment} currency={currency} onUpdate={loadData} />
           )}
 
-          {/* Agencies */}
           {activeTab === 'agencies' && hasPermission('agencies') && (
-            <AgenciesModule
-              agencies={agencies}
-              currency={currency}
-              onUpdate={loadData}
-            />
+            <AgenciesModule agencies={agencies} currency={currency} onUpdate={loadData} />
           )}
 
-          {/* Suppliers */}
           {activeTab === 'suppliers' && hasPermission('suppliers') && (
-            <SuppliersModule
-              suppliers={suppliers}
-              currency={currency}
-              onUpdate={loadData}
-            />
+            <SuppliersModule suppliers={suppliers} currency={currency} onUpdate={loadData} />
           )}
 
-          {/* Reports */}
           {activeTab === 'reports' && hasPermission('reports') && (
             <ReportsModule
               motorcycles={motorcycles}
@@ -271,30 +274,22 @@ const MainAppContent: React.FC = () => {
             />
           )}
 
-          {/* Audit Trail */}
           {activeTab === 'audit' && hasPermission('audit') && (
             <AuditLogModule auditLogs={auditLogs} />
           )}
 
-          {/* Settings */}
           {activeTab === 'settings' && hasPermission('settings') && (
-            <SettingsModule
-              currency={currency}
-              onCurrencyChange={setCurrency}
-              onResetDemoData={handleResetData}
-            />
+            <SettingsModule currency={currency} onCurrencyChange={setCurrency} onResetDemoData={handleResetData} />
           )}
         </main>
       </div>
 
-      {/* Mobile Bottom Navigation */}
       <MobileNav activeTab={activeTab} setActiveTab={setActiveTab} />
     </div>
   );
 };
 
 export default function App() {
-  // Global Cinematic Spotlight Effect: Track mouse position
   useEffect(() => {
     const handleMouseMove = (e: MouseEvent) => {
       const x = (e.clientX / window.innerWidth) * 100;
