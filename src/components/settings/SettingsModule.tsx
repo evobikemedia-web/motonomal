@@ -47,12 +47,12 @@ export const SettingsModule: React.FC<SettingsModuleProps> = ({
             </div>
           </div>
 
-          <div className="flex items-center gap-3 text-xs">
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 text-xs">
             {(['MAD', 'EUR', 'USD'] as const).map((curr) => (
               <button
                 key={curr}
                 onClick={() => onCurrencyChange(curr)}
-                className={`px-5 py-2.5 rounded-xl font-bold border transition-all ${
+                className={`px-5 py-3 rounded-xl font-bold border transition-all ${
                   currency === curr
                     ? 'bg-[#D4A017] text-[#1C1C1C] border-[#D4A017]'
                     : 'bg-[#262626] text-zinc-400 border-[#333333] hover:text-white'
@@ -89,7 +89,7 @@ export const SettingsModule: React.FC<SettingsModuleProps> = ({
                 onResetDemoData();
               }
             }}
-            className="flex items-center gap-2 px-4 py-2.5 rounded-xl text-xs font-bold bg-rose-950 border border-rose-800 text-rose-300 hover:bg-rose-900 transition-colors"
+            className="flex w-full sm:w-auto justify-center items-center gap-2 px-4 py-3 rounded-xl text-xs font-bold bg-rose-950 border border-rose-800 text-rose-300 hover:bg-rose-900 transition-colors"
           >
             <RefreshCw className="w-4 h-4" /> 
             {language === 'fr' ? 'Réinitialiser les Données de Démo' : 'Reset Demo Dataset'}
