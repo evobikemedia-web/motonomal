@@ -25,28 +25,32 @@ export const AuditLogModule: React.FC<AuditLogModuleProps> = ({ auditLogs }) => 
       </div>
 
       <div className="rounded-2xl border border-[#2D2D2D] bg-[#1C1C1C] overflow-hidden shadow-xl">
-        <table className="w-full text-left text-xs text-[#F4F4F2]">
-          <thead className="bg-[#222222] border-b border-[#2D2D2D] text-zinc-400 font-bold uppercase">
-            <tr>
-              <th className="p-4">{language === 'fr' ? 'Horodatage' : 'Timestamp'}</th>
-              <th className="p-4">{language === 'fr' ? 'Utilisateur' : 'User'}</th>
-              <th className="p-4">{language === 'fr' ? 'Action' : 'Action'}</th>
-              <th className="p-4">{language === 'fr' ? 'Module Cible' : 'Module Target'}</th>
-              <th className="p-4">{language === 'fr' ? 'Détails' : 'Details'}</th>
-            </tr>
-          </thead>
-          <tbody className="divide-y divide-[#2A2A2A]">
-            {auditLogs.map((log) => (
-              <tr key={log.id} className="hover:bg-[#252525]">
-                <td className="p-4 font-mono text-zinc-400">{new Date(log.timestamp).toLocaleString()}</td>
-                <td className="p-4 font-bold text-[#D4A017]">{log.userName} ({log.userRole})</td>
-                <td className="p-4 font-bold text-sky-400">{log.action}</td>
-                <td className="p-4 font-semibold text-zinc-300">{log.module}</td>
-                <td className="p-4 text-zinc-300">{log.details}</td>
+        {/* Conteneur avec scroll horizontal */}
+        <div className="w-full overflow-x-auto custom-scrollbar pb-2">
+          {/* Table avec largeur minimale */}
+          <table className="w-full text-left text-xs text-[#F4F4F2] min-w-[800px]">
+            <thead className="bg-[#222222] border-b border-[#2D2D2D] text-zinc-400 font-bold uppercase">
+              <tr>
+                <th className="p-4">{language === 'fr' ? 'Horodatage' : 'Timestamp'}</th>
+                <th className="p-4">{language === 'fr' ? 'Utilisateur' : 'User'}</th>
+                <th className="p-4">{language === 'fr' ? 'Action' : 'Action'}</th>
+                <th className="p-4">{language === 'fr' ? 'Module Cible' : 'Module Target'}</th>
+                <th className="p-4">{language === 'fr' ? 'Détails' : 'Details'}</th>
               </tr>
-            ))}
-          </tbody>
-        </table>
+            </thead>
+            <tbody className="divide-y divide-[#2A2A2A]">
+              {auditLogs.map((log) => (
+                <tr key={log.id} className="hover:bg-[#252525]">
+                  <td className="p-4 font-mono text-zinc-400">{new Date(log.timestamp).toLocaleString()}</td>
+                  <td className="p-4 font-bold text-[#D4A017]">{log.userName} ({log.userRole})</td>
+                  <td className="p-4 font-bold text-sky-400">{log.action}</td>
+                  <td className="p-4 font-semibold text-zinc-300">{log.module}</td>
+                  <td className="p-4 text-zinc-300">{log.details}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
       </div>
     </div>
   );
