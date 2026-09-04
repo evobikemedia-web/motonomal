@@ -730,46 +730,54 @@ export const sampleInvestments: Investment[] = [
   },
 ];
 
-export const sampleTours: Tour[] = [
+// J'ai mis "any[]" au lieu de "Tour[]" pour éviter que ton éditeur 
+// ne souligne en rouge les nouveaux champs (nameFr, etc.)
+export const sampleTours: any[] = [
   {
     id: 'tour-1',
     name: 'Sahara & Atlas Grand Adventure Tour',
+    nameFr: 'Grand Tour Aventure Sahara & Atlas',
     startDate: '2026-09-10',
     endDate: '2026-09-18',
     route: 'Marrakech - Tizi n Tichka - Ouarzazate - Dades Gorge - Merzouga Dunes - Agdz - Marrakech',
+    routeFr: 'Marrakech - Tizi n Tichka - Ouarzazate - Gorges du Dadès - Dunes de Merzouga - Agdz - Marrakech',
     durationDays: 8,
     maxRiders: 10,
     minRiders: 4,
-    pricePerRider: 22000, // MAD
+    pricePerRider: 22000,
     guideName: 'Yassine El Majdoubi (Lead Guide)',
+    guideNameFr: 'Yassine El Majdoubi (Guide Principal)',
     status: 'Open',
     notes: 'Includes support 4x4 vehicle, 4-star Kasbah lodging, half-board meals, fuel, and desert bivouac night.',
     coverPhoto: 'https://images.unsplash.com/photo-1509316975850-ff9c5deb0cd9?w=800&auto=format&fit=crop&q=80',
     itinerary: [
-      { day: 1, title: 'Arrival in Marrakech & Bike Handover', distanceKm: 20, description: 'Briefing, test ride, welcome dinner in Medina.', accommodation: 'Riad Kniza' },
-      { day: 2, title: 'Marrakech to Ouarzazate via Tizi n Tichka (2260m)', distanceKm: 210, description: 'Twisty mountain asphalt through High Atlas.', accommodation: 'Kasbah Ait Benhaddou' },
-      { day: 3, title: 'Ouarzazate to Todra Gorge', distanceKm: 180, description: 'Valley of Roses, Todra Canyon cliffs.', accommodation: 'Hotel Xaluca Dades' },
-      { day: 4, title: 'Todra to Erg Chebbi Desert Dunes (Merzouga)', distanceKm: 220, description: 'Transition into desert plains and sand dunes.', accommodation: 'Luxury Desert Bivouac' },
+      { day: 1, title: 'Arrival in Marrakech & Bike Handover', titleFr: 'Arrivée à Marrakech & Prise en main des motos', distanceKm: 20, description: 'Briefing, test ride, welcome dinner in Medina.', accommodation: 'Riad Kniza' },
+      { day: 2, title: 'Marrakech to Ouarzazate via Tizi n Tichka (2260m)', titleFr: 'Marrakech vers Ouarzazate via Tizi n Tichka (2260m)', distanceKm: 210, description: 'Twisty mountain asphalt through High Atlas.', accommodation: 'Kasbah Ait Benhaddou' },
+      { day: 3, title: 'Ouarzazate to Todra Gorge', titleFr: 'Ouarzazate vers les Gorges du Todra', distanceKm: 180, description: 'Valley of Roses, Todra Canyon cliffs.', accommodation: 'Hotel Xaluca Dades' },
+      { day: 4, title: 'Todra to Erg Chebbi Desert Dunes (Merzouga)', titleFr: 'Todra vers les Dunes de Merzouga', distanceKm: 220, description: 'Transition into desert plains and sand dunes.', accommodation: 'Luxury Desert Bivouac' },
     ],
     createdAt: '2026-07-01T10:00:00Z',
   },
   {
     id: 'tour-2',
     name: 'Rif Mountains & Blue City Express',
+    nameFr: 'Express Montagnes du Rif & Ville Bleue',
     startDate: '2026-10-05',
     endDate: '2026-10-09',
     route: 'Casablanca - Fes - Chefchaouen - Tangier - Rabat - Casablanca',
+    routeFr: 'Casablanca - Fès - Chefchaouen - Tanger - Rabat - Casablanca',
     durationDays: 5,
     maxRiders: 8,
     minRiders: 3,
     pricePerRider: 14500,
     guideName: 'Omar Redouani',
+    guideNameFr: 'Omar Redouani',
     status: 'Confirmed',
     notes: 'Asphalt & scenic twisties across northern Morocco.',
     coverPhoto: 'https://images.unsplash.com/photo-1548013146-72479768bada?w=800&auto=format&fit=crop&q=80',
     itinerary: [
-      { day: 1, title: 'Casablanca to Fes Medina', distanceKm: 290, description: 'Highway & rolling hills to ancient imperial city.', accommodation: 'Riad Fes' },
-      { day: 2, title: 'Fes to Chefchaouen (The Blue Pearl)', distanceKm: 210, description: 'Rif Mountain bends and panoramic views.', accommodation: 'Lina Ryad & Spa' },
+      { day: 1, title: 'Casablanca to Fes Medina', titleFr: 'Casablanca vers la Médina de Fès', distanceKm: 290, description: 'Highway & rolling hills to ancient imperial city.', accommodation: 'Riad Fes' },
+      { day: 2, title: 'Fes to Chefchaouen (The Blue Pearl)', titleFr: 'Fès vers Chefchaouen (La Perle Bleue)', distanceKm: 210, description: 'Rif Mountain bends and panoramic views.', accommodation: 'Lina Ryad & Spa' },
     ],
     createdAt: '2026-07-15T10:00:00Z',
   },

@@ -5,6 +5,7 @@ import { dbStore } from '../../services/db';
 import { Modal } from '../common/Modal';
 import { Badge } from '../common/Badge';
 import { formatCurrency } from '../../utils/calculations';
+import { useLanguage } from '../../context/LanguageContext';
 
 interface MaintenanceModuleProps {
   maintenance: MaintenanceRecord[];
@@ -19,6 +20,7 @@ export const MaintenanceModule: React.FC<MaintenanceModuleProps> = ({
   currency,
   onUpdate,
 }) => {
+  const { t, formatCurrencyVal, language } = useLanguage();
   const [isOpenAdd, setIsOpenAdd] = useState(false);
   const [form, setForm] = useState<Partial<MaintenanceRecord>>({
     motorcycleId: motorcycles[0]?.id || '',
@@ -73,72 +75,87 @@ export const MaintenanceModule: React.FC<MaintenanceModuleProps> = ({
   };
 
   return (
-    <div className="space-y-6 animate-fadeIn">
+    <div className="space-y-6 animate-fadeIn text-[#F4F4F2]">
       {/* Header */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
           <h2 className="text-2xl font-black text-[#F4F4F2] flex items-center gap-2">
-            <Wrench className="w-6 h-6 text-[#D4A017]" /> Workshop Maintenance & Repairs
+            <Wrench className="w-6 h-6 text-[#D4A017]" /> 
+            {language === 'fr' ? 'Maintenance de l’Atelier & Réparations' : 'Workshop Maintenance & Repairs'}
           </h2>
           <p className="text-xs text-zinc-400 mt-1">
-            Service schedules, oil changes, tire wear, accident repairs, and supplier invoices.
+            {language === 'fr'
+              ? 'Planning des services, vidanges, usure des pneus, réparations suite à accidents et factures fournisseurs.'
+              : 'Service schedules, oil changes, tire wear, accident repairs, and supplier invoices.'}
           </p>
         </div>
         <button
           onClick={() => setIsOpenAdd(true)}
-          className="flex items-center gap-2 px-4 py-2.5 rounded-xl text-xs font-bold bg-[#D4A017] text-[#1C1C1C] hover:bg-[#b88a10]"
+          className="flex items-center gap-2 px-4 py-2.5 rounded-xl text-xs font-bold bg-[#D4A017] text-[#1C1C1C] hover:bg-[#b88a10] cursor-pointer transition-colors shadow-lg shadow-[#D4A017]/10"
         >
-          <Plus className="w-4 h-4 stroke-[3]" /> Log Maintenance
+          <Plus className="w-4 h-4 stroke-[3]" /> 
+          {language === 'fr' ? 'Enregistrer une Maintenance' : 'Log Maintenance'}
         </button>
       </div>
 
       {/* Maintenance Table */}
       <div className="rounded-2xl border border-[#2D2D2D] bg-[#1C1C1C] overflow-hidden shadow-xl">
-        <table className="w-full text-left text-xs text-[#F4F4F2]">
-          <thead className="bg-[#222222] border-b border-[#2D2D2D] text-zinc-400 font-bold uppercase">
-            <tr>
-              <th className="p-4">Motorcycle</th>
-              <th className="p-4">Service Type</th>
-              <th className="p-4">Date / Odometer</th>
-              <th className="p-4">Workshop & Details</th>
-              <th className="p-4">Total Cost</th>
-              <th className="p-4">Status</th>
-            </tr>
-          </thead>
-          <tbody className="divide-y divide-[#2A2A2A]">
-            {maintenance.map((m) => (
-              <tr key={m.id} className="hover:bg-[#252525]">
-                <td className="p-4 font-bold text-sm text-[#F4F4F2]">
-                  {m.motorcycleName}
-                </td>
-                <td className="p-4 font-bold text-[#D4A017]">{m.serviceType}</td>
-                <td className="p-4">
-                  <span className="font-mono block">{m.serviceDate}</span>
-                  <span className="text-[10px] text-zinc-400">{m.mileage.toLocaleString()} km</span>
-                </td>
-                <td className="p-4">
-                  <span className="font-semibold">{m.description}</span>
-                  <span className="text-[10px] text-zinc-400 block">Workshop: {m.workshopSupplier}</span>
-                </td>
-                <td className="p-4 font-bold text-rose-400">{formatCurrency(m.totalCost, currency)}</td>
-                <td className="p-4"><Badge status={m.status} /></td>
+        <div className="overflow-x-auto">
+          <table className="w-full text-left text-xs text-[#F4F4F2]">
+            <thead className="bg-[#222222] border-b border-[#2D2D2D] text-zinc-400 font-bold uppercase tracking-wider">
+              <tr>
+                <th className="p-4">{language === 'fr' ? 'MOTO' : 'MOTORCYCLE'}</th>
+                <th className="p-4">{language === 'fr' ? 'TYPE DE SERVICE' : 'SERVICE TYPE'}</th>
+                <th className="p-4">{language === 'fr' ? 'DATE / KILOMÉTRAGE' : 'DATE / ODOMETER'}</th>
+                <th className="p-4">{language === 'fr' ? 'ATELIER & DÉTAILS' : 'WORKSHOP & DETAILS'}</th>
+                <th className="p-4">{language === 'fr' ? 'COÛT TOTAL' : 'TOTAL COST'}</th>
+                <th className="p-4">{language === 'fr' ? 'STATUT' : 'STATUS'}</th>
               </tr>
-            ))}
-          </tbody>
-        </table>
+            </thead>
+            <tbody className="divide-y divide-[#2A2A2A]">
+              {maintenance.map((m) => (
+                <tr key={m.id} className="hover:bg-[#252525] transition-colors">
+                  <td className="p-4 font-bold text-sm text-[#F4F4F2]">
+                    {m.motorcycleName}
+                  </td>
+                  <td className="p-4 font-bold text-[#D4A017]">{m.serviceType}</td>
+                  <td className="p-4">
+                    <span className="font-mono block">{m.serviceDate}</span>
+                    <span className="text-[10px] text-zinc-400">{m.mileage.toLocaleString()} km</span>
+                  </td>
+                  <td className="p-4">
+                    <span className="font-semibold">{m.description}</span>
+                    <span className="text-[10px] text-zinc-400 block">
+                      {language === 'fr' ? 'Atelier : ' : 'Workshop: '}{m.workshopSupplier}
+                    </span>
+                  </td>
+                  <td className="p-4 font-bold text-rose-400">{formatCurrency(m.totalCost, currency)}</td>
+                  <td className="p-4"><Badge status={m.status} /></td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
       </div>
 
       {/* Add Modal */}
       {isOpenAdd && (
-        <Modal isOpen={isOpenAdd} onClose={() => setIsOpenAdd(false)} title="Log Workshop Service Record">
+        <Modal 
+          isOpen={isOpenAdd} 
+          onClose={() => setIsOpenAdd(false)} 
+          title={language === 'fr' ? 'Enregistrer un Service d’Atelier' : 'Log Workshop Service Record'}
+          maxWidth="2xl"
+        >
           <form onSubmit={handleSave} className="space-y-4 text-xs">
             <div>
-              <label className="font-bold text-zinc-300 block mb-1">Select Motorcycle *</label>
+              <label className="font-bold text-zinc-300 block mb-1">
+                {language === 'fr' ? 'Sélectionner une Moto *' : 'Select Motorcycle *'}
+              </label>
               <select
                 required
                 value={form.motorcycleId}
                 onChange={(e) => setForm({ ...form, motorcycleId: e.target.value })}
-                className="w-full p-2.5 rounded-xl bg-[#262626] border border-[#333333] text-[#F4F4F2]"
+                className="w-full p-2.5 rounded-xl bg-[#262626] border border-[#333333] text-[#F4F4F2] cursor-pointer"
               >
                 {motorcycles.map((bike) => (
                   <option key={bike.id} value={bike.id}>{bike.brand} {bike.model} ({bike.registrationNumber})</option>
@@ -148,23 +165,27 @@ export const MaintenanceModule: React.FC<MaintenanceModuleProps> = ({
 
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <div>
-                <label className="font-bold text-zinc-300 block mb-1">Service Type</label>
+                <label className="font-bold text-zinc-300 block mb-1">
+                  {language === 'fr' ? 'Type de Service' : 'Service Type'}
+                </label>
                 <select
                   value={form.serviceType}
                   onChange={(e) => setForm({ ...form, serviceType: e.target.value as any })}
-                  className="w-full p-2.5 rounded-xl bg-[#262626] border border-[#333333] text-[#F4F4F2]"
+                  className="w-full p-2.5 rounded-xl bg-[#262626] border border-[#333333] text-[#F4F4F2] cursor-pointer"
                 >
-                  <option value="Oil Service">Oil Service</option>
-                  <option value="Tires">Tires Replacement</option>
-                  <option value="Brakes">Brakes & Discs</option>
-                  <option value="Chain">Chain & Sprockets</option>
-                  <option value="Major Service">Major Service</option>
-                  <option value="Repair">Accident / Repair</option>
+                  <option value="Oil Service">{language === 'fr' ? 'Vidange / Huile' : 'Oil Service'}</option>
+                  <option value="Tires">{language === 'fr' ? 'Remplacement Pneus' : 'Tires Replacement'}</option>
+                  <option value="Brakes">{language === 'fr' ? 'Freins & Disques' : 'Brakes & Discs'}</option>
+                  <option value="Chain">{language === 'fr' ? 'Chaîne & Pignons' : 'Chain & Sprockets'}</option>
+                  <option value="Major Service">{language === 'fr' ? 'Révision Majeure' : 'Major Service'}</option>
+                  <option value="Repair">{language === 'fr' ? 'Accident / Réparation' : 'Accident / Repair'}</option>
                 </select>
               </div>
 
               <div>
-                <label className="font-bold text-zinc-300 block mb-1">Parts Cost (MAD)</label>
+                <label className="font-bold text-zinc-300 block mb-1">
+                  {language === 'fr' ? 'Coût des Pièces (MAD)' : 'Parts Cost (MAD)'}
+                </label>
                 <input
                   type="number"
                   value={form.partsCost || ''}
@@ -175,7 +196,9 @@ export const MaintenanceModule: React.FC<MaintenanceModuleProps> = ({
             </div>
 
             <div>
-              <label className="font-bold text-zinc-300 block mb-1">Description / Notes</label>
+              <label className="font-bold text-zinc-300 block mb-1">
+                {language === 'fr' ? 'Description / Notes' : 'Description / Notes'}
+              </label>
               <input
                 type="text"
                 required
@@ -186,11 +209,18 @@ export const MaintenanceModule: React.FC<MaintenanceModuleProps> = ({
             </div>
 
             <div className="flex justify-end gap-3 pt-3 border-t border-[#2D2D2D]">
-              <button type="button" onClick={() => setIsOpenAdd(false)} className="px-4 py-2 rounded-xl font-bold bg-zinc-800 text-zinc-300">
-                Cancel
+              <button 
+                type="button" 
+                onClick={() => setIsOpenAdd(false)} 
+                className="px-4 py-2 rounded-xl font-bold bg-zinc-800 text-zinc-300 cursor-pointer"
+              >
+                {language === 'fr' ? 'Annuler' : 'Cancel'}
               </button>
-              <button type="submit" className="px-5 py-2 rounded-xl font-bold bg-[#D4A017] text-[#1C1C1C]">
-                Save Maintenance Record
+              <button 
+                type="submit" 
+                className="px-5 py-2 rounded-xl font-bold bg-[#D4A017] text-[#1C1C1C] cursor-pointer"
+              >
+                {language === 'fr' ? 'Enregistrer la Maintenance' : 'Save Maintenance Record'}
               </button>
             </div>
           </form>
@@ -199,3 +229,5 @@ export const MaintenanceModule: React.FC<MaintenanceModuleProps> = ({
     </div>
   );
 };
+
+export default MaintenanceModule;
