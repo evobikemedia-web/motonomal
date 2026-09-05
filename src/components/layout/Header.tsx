@@ -20,6 +20,7 @@ interface HeaderProps {
   setCustomEndDate: (d: string) => void;
   onQuickAction: (actionType: 'reservation' | 'client' | 'motorcycle') => void;
   setActiveTab: (tab: string) => void;
+  userRole?: string; // Rôle de l'utilisateur connecté
 }
 
 export const Header: React.FC<HeaderProps> = ({
@@ -35,6 +36,7 @@ export const Header: React.FC<HeaderProps> = ({
   setCustomEndDate,
   setActiveTab,
   onQuickAction,
+  userRole = 'admin',
 }) => {
   const { t, language, setLanguage } = useLanguage();
   const [showQuickAction, setShowQuickAction] = useState(false);
@@ -44,6 +46,9 @@ export const Header: React.FC<HeaderProps> = ({
   
   const dropdownRef = useRef<HTMLDivElement>(null);
   const mobileModalRef = useRef<HTMLDivElement>(null);
+
+  // Vérification : Masquer pour le profil accounting (insensible à la casse)
+  const canPerformQuickAction = userRole?.toLowerCase() !== 'accounting';
 
   useEffect(() => {
     const handleOnline = () => setIsOffline(false);
@@ -104,7 +109,7 @@ export const Header: React.FC<HeaderProps> = ({
       )}
 
       {/* 2. Modale Quick Actions */}
-      {showQuickAction && (
+      {showQuickAction && canPerformQuickAction && (
         <div className="fixed inset-0 w-screen h-[100dvh] z-[99999] flex items-center justify-center p-4">
           <div onClick={() => setShowQuickAction(false)} className="absolute inset-0 bg-black/70 backdrop-blur-md" />
           <div className="relative w-full max-w-sm bg-[#1A1A1A] border border-white/10 rounded-2xl shadow-2xl p-6 z-10">
@@ -147,7 +152,6 @@ export const Header: React.FC<HeaderProps> = ({
             </span>
           </div>
 
-          {/* Bouton loupe mobile pour activer la recherche si besoin */}
           <button 
             type="button" 
             onClick={() => setShowMobileSearch(!showMobileSearch)} 
@@ -157,7 +161,6 @@ export const Header: React.FC<HeaderProps> = ({
           </button>
         </div>
 
-        {/* Barre de recherche (Toujours visible sur Desktop, et basculable/visible sur Mobile si activée) */}
         <div className={`${showMobileSearch ? 'flex' : 'hidden'} md:flex relative items-center w-full md:max-w-md mx-2`}>
           <Search className="absolute left-3.5 w-4 h-4 text-zinc-400 pointer-events-none" />
           <input
@@ -178,10 +181,8 @@ export const Header: React.FC<HeaderProps> = ({
           )}
         </div>
 
-        {/* Right Section */}
         <div className="flex items-center justify-between md:justify-end w-full md:w-auto gap-1 md:gap-3">
           
-          {/* Date Picker */}
           <div className="relative" ref={dropdownRef}>
             <button 
               type="button"
@@ -211,7 +212,6 @@ export const Header: React.FC<HeaderProps> = ({
             )}
           </div>
 
-          {/* Devise & Langue */}
           <div className="flex items-center bg-[#181818] border border-[#333333] rounded-lg p-0.5 gap-0.5 md:gap-1 shadow-sm shrink-0">
             <div className="flex items-center bg-[#262626] rounded-md p-0.5">
               {(['MAD', 'EUR', 'USD'] as const).map((c) => (
@@ -234,17 +234,19 @@ export const Header: React.FC<HeaderProps> = ({
             </div>
           </div>
 
-          {/* Quick Action Button */}
-          <div className="relative shrink-0">
-            <button 
-              type="button"
-              onClick={() => setShowQuickAction(true)}
-              className="flex items-center justify-center w-8 h-8 md:w-auto md:h-auto md:px-4 md:py-2 rounded-xl font-bold text-xs md:text-sm bg-[#D4A017] text-[#1C1C1C] hover:bg-[#b88a10] transition-all shadow-lg cursor-pointer"
-            >
-              <Plus className="w-4 h-4 stroke-[3]" />
-              <span className="hidden md:inline ml-1">{t('common.quick_add')}</span>
-            </button>
-          </div>
+          {/* Quick Action Button - Affiché uniquement si ce n'est PAS accounting */}
+          {canPerformQuickAction && (
+            <div className="relative shrink-0">
+              <button 
+                type="button"
+                onClick={() => setShowQuickAction(true)}
+                className="flex items-center justify-center w-8 h-8 md:w-auto md:h-auto md:px-4 md:py-2 rounded-xl font-bold text-xs md:text-sm bg-[#D4A017] text-[#1C1C1C] hover:bg-[#b88a10] transition-all shadow-lg cursor-pointer"
+              >
+                <Plus className="w-4 h-4 stroke-[3]" />
+                <span className="hidden md:inline ml-1">{t('common.quick_add')}</span>
+              </button>
+            </div>
+          )}
           
         </div>
       </header>

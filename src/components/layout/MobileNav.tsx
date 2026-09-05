@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import {
+import { 
   LayoutDashboard, Calendar, Bike, Users, Menu, X,
   Wrench, Compass, DollarSign, TrendingUp, ShieldCheck,
   Building2, Truck, BarChart3, FileCode, Settings, LogOut, ShieldAlert
@@ -18,12 +18,15 @@ export const MobileNav: React.FC<MobileNavProps> = ({ activeTab, setActiveTab })
   const { user, login, logout, hasPermission } = useAuth();
   const [isMoreOpen, setIsMoreOpen] = useState(false);
 
+  const isAccounting = user?.role?.toLowerCase() === 'accounting';
+
+  // Filtrer les onglets principaux : on exclut le dashboard pour ACCOUNTING
   const mainTabs = [
     { id: 'dashboard', label: t('nav.dashboard'), icon: LayoutDashboard, module: 'dashboard' },
     { id: 'reservations', label: t('nav.reservations'), icon: Calendar, module: 'reservations' },
     { id: 'fleet', label: t('nav.fleet'), icon: Bike, module: 'fleet' },
     { id: 'clients', label: t('nav.clients'), icon: Users, module: 'clients' },
-  ];
+  ].filter(tab => !(isAccounting && tab.id === 'dashboard'));
 
   const moreItems = [
     { id: 'tours', label: t('nav.tours'), icon: Compass, module: 'tours' },
@@ -103,7 +106,6 @@ export const MobileNav: React.FC<MobileNavProps> = ({ activeTab, setActiveTab })
                 </span>
               </div>
               <div className="flex items-center gap-2">
-                {/* Language switch button inside Mobile More sheet */}
                 <button
                   onClick={() => setLanguage(language === 'fr' ? 'en' : 'fr')}
                   className="px-2.5 py-1 rounded-lg bg-[#282828] border border-[#3A3A3A] text-xs font-bold text-[#D4A017] flex items-center gap-1"
@@ -203,3 +205,5 @@ export const MobileNav: React.FC<MobileNavProps> = ({ activeTab, setActiveTab })
     </>
   );
 };
+
+export default MobileNav;

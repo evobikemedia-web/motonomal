@@ -168,6 +168,7 @@ const MainAppContent: React.FC = () => {
           setCustomEndDate={setCustomEndDate}
           setActiveTab={setActiveTab}
           onQuickAction={handleQuickAction}
+          userRole={user?.role}
         />
 
         <main className="flex-1 overflow-y-auto p-3 sm:p-5 lg:p-8 space-y-6 custom-scrollbar">
