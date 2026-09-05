@@ -1,7 +1,8 @@
 import React from 'react';
-import { Settings, RefreshCw, Database, Shield, Globe, DollarSign } from 'lucide-react';
-import { dbStore } from '../../services/db';
+import { Settings, RefreshCw, Database, Globe } from 'lucide-react';
 import { useLanguage } from '../../context/LanguageContext';
+import { useAuth } from '../../context/AuthContext';
+import { TeamManagementModule } from '../admin/TeamManagementModule'; // Assurez-vous que le chemin d'accès correspond à l'emplacement de votre fichier
 
 interface SettingsModuleProps {
   currency: 'MAD' | 'EUR' | 'USD';
@@ -15,6 +16,7 @@ export const SettingsModule: React.FC<SettingsModuleProps> = ({
   onResetDemoData,
 }) => {
   const { language } = useLanguage();
+  const { user } = useAuth(); // Récupération de l'utilisateur connecté pour vérifier son rôle
 
   return (
     <div className="space-y-6 animate-fadeIn max-w-4xl">
@@ -52,7 +54,7 @@ export const SettingsModule: React.FC<SettingsModuleProps> = ({
               <button
                 key={curr}
                 onClick={() => onCurrencyChange(curr)}
-                className={`px-5 py-3 rounded-xl font-bold border transition-all ${
+                className={`px-5 py-3 rounded-xl font-bold border transition-all cursor-pointer ${
                   currency === curr
                     ? 'bg-[#D4A017] text-[#1C1C1C] border-[#D4A017]'
                     : 'bg-[#262626] text-zinc-400 border-[#333333] hover:text-white'
@@ -89,12 +91,19 @@ export const SettingsModule: React.FC<SettingsModuleProps> = ({
                 onResetDemoData();
               }
             }}
-            className="flex w-full sm:w-auto justify-center items-center gap-2 px-4 py-3 rounded-xl text-xs font-bold bg-rose-950 border border-rose-800 text-rose-300 hover:bg-rose-900 transition-colors"
+            className="flex w-full sm:w-auto justify-center items-center gap-2 px-4 py-3 rounded-xl text-xs font-bold bg-rose-950 border border-rose-800 text-rose-300 hover:bg-rose-900 transition-colors cursor-pointer"
           >
             <RefreshCw className="w-4 h-4" /> 
             {language === 'fr' ? 'Réinitialiser les Données de Démo' : 'Reset Demo Dataset'}
           </button>
         </div>
+
+        {/* Section Administration : Visible uniquement pour le rôle ADMIN */}
+        {user?.role === 'ADMIN' && (
+          <div className="pt-2">
+            <TeamManagementModule />
+          </div>
+        )}
       </div>
     </div>
   );
