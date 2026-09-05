@@ -1,26 +1,64 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { 
-  TrendingUp, Calculator, Plus, ArrowUpRight, DollarSign, Bike, ShieldCheck, PieChart 
+  TrendingUp, Calculator, Plus, ArrowUpRight, DollarSign, Bike, ShieldCheck, PieChart, RefreshCw 
 } from 'lucide-react';
 import { Investment } from '../../types';
-import { dbStore } from '../../services/db';
 import { Modal } from '../common/Modal';
 import { formatCurrency, calculateInvestmentMetrics } from '../../utils/calculations';
 import { useLanguage } from '../../context/LanguageContext';
+import { supabase } from '../../services/supabase';
 
 interface InvestmentsModuleProps {
-  investments: Investment[];
+  investments: Investment[]; // Conservé pour la signature React
   currency: 'MAD' | 'EUR' | 'USD';
   onUpdate: () => void;
 }
 
 export const InvestmentsModule: React.FC<InvestmentsModuleProps> = ({
-  investments,
   currency,
   onUpdate,
 }) => {
   const { language } = useLanguage();
   const [activeTab, setActiveTab] = useState<'portfolio' | 'simulator'>('portfolio');
+
+  // ----------------------------------------------------
+  // ÉTATS DE LA BASE DE DONNÉES EN DIRECT (Supabase)
+  // ----------------------------------------------------
+  const [liveInvestments, setLiveInvestments] = useState<Investment[]>([]);
+  const [isLoadingDb, setIsLoadingDb] = useState(true);
+
+  const fetchInvestmentsData = async () => {
+    try {
+      setIsLoadingDb(true);
+      const { data, error } = await supabase
+        .from('investments')
+        .select('*')
+        .order('investment_date', { ascending: false });
+
+      if (error) throw error;
+
+      const mappedInvestments = (data || []).map((inv: any) => ({
+        id: inv.id,
+        title: inv.title,
+        titleFr: inv.title,
+        investmentType: inv.category || 'Motorcycle',
+        date: inv.investment_date,
+        totalInvestment: Number(inv.total_capital) || 0,
+        actualRevenue: Number(inv.real_revenue) || 0,
+        netProfit: Number(inv.net_profit) || 0,
+      })) as unknown as Investment[]; // Double cast pour résoudre l'erreur TypeScript
+
+      setLiveInvestments(mappedInvestments);
+    } catch (error) {
+      console.error("Erreur de synchronisation des investissements:", error);
+    } finally {
+      setIsLoadingDb(false);
+    }
+  };
+
+  useEffect(() => {
+    fetchInvestmentsData();
+  }, []);
 
   // Investment Simulator State
   const [simPrice1, setSimPrice1] = useState(110000); // V-Strom 650
@@ -60,6 +98,15 @@ export const InvestmentsModule: React.FC<InvestmentsModuleProps> = ({
   const model2 = calcSim(simPrice2, simRate2, simUtil2);
   const model3 = calcSim(simPrice3, simRate3, simUtil3);
 
+  if (isLoadingDb && liveInvestments.length === 0) {
+    return (
+      <div className="flex flex-col items-center justify-center min-h-[60vh] text-[#D4A017] space-y-4">
+        <RefreshCw className="w-10 h-10 animate-spin" />
+        <p className="font-bold tracking-widest uppercase text-sm">Chargement des investissements...</p>
+      </div>
+    );
+  }
+
   return (
     <div className="space-y-6 animate-fadeIn">
       {/* Header Tabs */}
@@ -78,15 +125,15 @@ export const InvestmentsModule: React.FC<InvestmentsModuleProps> = ({
         <div className="flex items-center gap-2 bg-[#262626] border border-[#333333] p-1 rounded-xl text-xs font-bold">
           <button
             onClick={() => setActiveTab('portfolio')}
-            className={`px-4 py-2 rounded-lg transition-colors ${
+            className={`px-4 py-2 rounded-lg transition-colors cursor-pointer ${
               activeTab === 'portfolio' ? 'bg-[#D4A017] text-[#1C1C1C]' : 'text-zinc-400 hover:text-white'
             }`}
           >
-            {language === 'fr' ? 'Investissements Actifs' : 'Active Investments'} ({investments.length})
+            {language === 'fr' ? 'Investissements Actifs' : 'Active Investments'} ({liveInvestments.length})
           </button>
           <button
             onClick={() => setActiveTab('simulator')}
-            className={`px-4 py-2 rounded-lg transition-colors ${
+            className={`px-4 py-2 rounded-lg transition-colors cursor-pointer ${
               activeTab === 'simulator' ? 'bg-[#D4A017] text-[#1C1C1C]' : 'text-zinc-400 hover:text-white'
             }`}
           >
@@ -98,64 +145,68 @@ export const InvestmentsModule: React.FC<InvestmentsModuleProps> = ({
 
       {/* Active Investments */}
       {activeTab === 'portfolio' && (
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-          {investments.map((inv) => {
-            const metrics = calculateInvestmentMetrics(inv);
-            
-            // Dynamic translation for investment type categories
-            let typeLabel: string = inv.investmentType;
-            if (language === 'fr') {
-              if (typeLabel === 'Motorcycle') typeLabel = 'Moto';
-              if (typeLabel === 'Infrastructure') typeLabel = 'Infrastructure';
-              if (typeLabel === 'Equipment') typeLabel = 'Équipement';
-            }
+        liveInvestments.length === 0 ? (
+          <div className="p-8 text-center text-zinc-500 bg-[#1C1C1C] rounded-2xl border border-[#2D2D2D]">
+            {language === 'fr' ? 'Aucun investissement actif enregistré dans le cloud.' : 'No active investments registered in the cloud.'}
+          </div>
+        ) : (
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+            {liveInvestments.map((inv) => {
+              const metrics = calculateInvestmentMetrics(inv);
+              
+              let typeLabel: string = inv.investmentType;
+              if (language === 'fr') {
+                if (typeLabel === 'Motorcycle') typeLabel = 'Moto';
+                if (typeLabel === 'Infrastructure') typeLabel = 'Infrastructure';
+                if (typeLabel === 'Equipment') typeLabel = 'Équipement';
+              }
 
-            return (
-              <div key={inv.id} className="p-6 rounded-2xl bg-[#1C1C1C] border border-[#2D2D2D] shadow-xl space-y-4">
-                <div>
-                  <span className="text-[10px] uppercase font-bold text-[#D4A017] block">{typeLabel}</span>
-                  <h3 className="font-bold text-base text-[#F4F4F2] mt-0.5">
-                    {/* Dynamic language support for Title */}
-                    {language === 'fr' ? (inv as any).titleFr || inv.title : inv.title}
-                  </h3>
-                  <span className="text-xs text-zinc-400">
-                    {language === 'fr' ? 'Date :' : 'Date:'} {inv.date}
-                  </span>
-                </div>
-
-                <div className="p-3 rounded-xl bg-[#222222] border border-[#333333] space-y-2 text-xs">
-                  <div className="flex justify-between">
-                    <span className="text-zinc-400">{language === 'fr' ? 'Capital Total :' : 'Total Capital:'}</span>
-                    <span className="font-bold text-[#F4F4F2]">{formatCurrency(inv.totalInvestment, currency)}</span>
-                  </div>
-                  <div className="flex justify-between">
-                    <span className="text-zinc-400">{language === 'fr' ? 'Revenu Réel :' : 'Actual Revenue:'}</span>
-                    <span className="font-bold text-emerald-400">{formatCurrency(inv.actualRevenue, currency)}</span>
-                  </div>
-                  <div className="flex justify-between">
-                    <span className="text-zinc-400">{language === 'fr' ? 'Bénéfice Net :' : 'Net Profit:'}</span>
-                    <span className="font-bold text-[#D4A017]">{formatCurrency(metrics.netProfit, currency)}</span>
-                  </div>
-                </div>
-
-                <div className="grid grid-cols-2 gap-2 text-center text-xs">
-                  <div className="p-2.5 rounded-xl bg-[#252525] border border-[#333333]">
-                    <span className="text-[10px] uppercase font-bold text-zinc-400 block">ROI</span>
-                    <span className="font-black text-emerald-400 text-sm">+{metrics.roi}%</span>
-                  </div>
-                  <div className="p-2.5 rounded-xl bg-[#252525] border border-[#333333]">
-                    <span className="text-[10px] uppercase font-bold text-zinc-400 block">
-                      {language === 'fr' ? 'Amortissement' : 'Payback'}
-                    </span>
-                    <span className="font-black text-[#D4A017] text-sm">
-                      {metrics.paybackPeriodMonths} {language === 'fr' ? 'Mois' : 'Months'}
+              return (
+                <div key={inv.id} className="p-6 rounded-2xl bg-[#1C1C1C] border border-[#2D2D2D] shadow-xl space-y-4">
+                  <div>
+                    <span className="text-[10px] uppercase font-bold text-[#D4A017] block">{typeLabel}</span>
+                    <h3 className="font-bold text-base text-[#F4F4F2] mt-0.5">
+                      {language === 'fr' ? (inv as any).titleFr || inv.title : inv.title}
+                    </h3>
+                    <span className="text-xs text-zinc-400">
+                      {language === 'fr' ? 'Date :' : 'Date:'} {inv.date}
                     </span>
                   </div>
+
+                  <div className="p-3 rounded-xl bg-[#222222] border border-[#333333] space-y-2 text-xs">
+                    <div className="flex justify-between">
+                      <span className="text-zinc-400">{language === 'fr' ? 'Capital Total :' : 'Total Capital:'}</span>
+                      <span className="font-bold text-[#F4F4F2]">{formatCurrency(inv.totalInvestment, currency)}</span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span className="text-zinc-400">{language === 'fr' ? 'Revenu Réel :' : 'Actual Revenue:'}</span>
+                      <span className="font-bold text-emerald-400">{formatCurrency(inv.actualRevenue, currency)}</span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span className="text-zinc-400">{language === 'fr' ? 'Bénéfice Net :' : 'Net Profit:'}</span>
+                      <span className="font-bold text-[#D4A017]">{formatCurrency(metrics.netProfit, currency)}</span>
+                    </div>
+                  </div>
+
+                  <div className="grid grid-cols-2 gap-2 text-center text-xs">
+                    <div className="p-2.5 rounded-xl bg-[#252525] border border-[#333333]">
+                      <span className="text-[10px] uppercase font-bold text-zinc-400 block">ROI</span>
+                      <span className="font-black text-emerald-400 text-sm">+{metrics.roi}%</span>
+                    </div>
+                    <div className="p-2.5 rounded-xl bg-[#252525] border border-[#333333]">
+                      <span className="text-[10px] uppercase font-bold text-zinc-400 block">
+                        {language === 'fr' ? 'Amortissement' : 'Payback'}
+                      </span>
+                      <span className="font-black text-[#D4A017] text-sm">
+                        {metrics.paybackPeriodMonths} {language === 'fr' ? 'Mois' : 'Months'}
+                      </span>
+                    </div>
+                  </div>
                 </div>
-              </div>
-            );
-          })}
-        </div>
+              );
+            })}
+          </div>
+        )
       )}
 
       {/* Predictive Simulator */}
@@ -183,7 +234,7 @@ export const InvestmentsModule: React.FC<InvestmentsModuleProps> = ({
                     type="number"
                     value={simPrice1}
                     onChange={(e) => setSimPrice1(Number(e.target.value))}
-                    className="w-full p-2 rounded-xl bg-[#262626] border border-[#333333] text-[#F4F4F2]"
+                    className="w-full p-2 rounded-xl bg-[#262626] border border-[#333333] text-[#F4F4F2] outline-none"
                   />
                 </div>
                 <div>
@@ -192,7 +243,7 @@ export const InvestmentsModule: React.FC<InvestmentsModuleProps> = ({
                     type="number"
                     value={simRate1}
                     onChange={(e) => setSimRate1(Number(e.target.value))}
-                    className="w-full p-2 rounded-xl bg-[#262626] border border-[#333333] text-[#F4F4F2]"
+                    className="w-full p-2 rounded-xl bg-[#262626] border border-[#333333] text-[#F4F4F2] outline-none"
                   />
                 </div>
                 <div>
@@ -203,7 +254,7 @@ export const InvestmentsModule: React.FC<InvestmentsModuleProps> = ({
                     max="90"
                     value={simUtil1}
                     onChange={(e) => setSimUtil1(Number(e.target.value))}
-                    className="w-full accent-[#D4A017]"
+                    className="w-full accent-[#D4A017] cursor-pointer"
                   />
                 </div>
               </div>
@@ -227,7 +278,7 @@ export const InvestmentsModule: React.FC<InvestmentsModuleProps> = ({
                     type="number"
                     value={simPrice2}
                     onChange={(e) => setSimPrice2(Number(e.target.value))}
-                    className="w-full p-2 rounded-xl bg-[#262626] border border-[#333333] text-[#F4F4F2]"
+                    className="w-full p-2 rounded-xl bg-[#262626] border border-[#333333] text-[#F4F4F2] outline-none"
                   />
                 </div>
                 <div>
@@ -236,7 +287,7 @@ export const InvestmentsModule: React.FC<InvestmentsModuleProps> = ({
                     type="number"
                     value={simRate2}
                     onChange={(e) => setSimRate2(Number(e.target.value))}
-                    className="w-full p-2 rounded-xl bg-[#262626] border border-[#333333] text-[#F4F4F2]"
+                    className="w-full p-2 rounded-xl bg-[#262626] border border-[#333333] text-[#F4F4F2] outline-none"
                   />
                 </div>
                 <div>
@@ -247,7 +298,7 @@ export const InvestmentsModule: React.FC<InvestmentsModuleProps> = ({
                     max="90"
                     value={simUtil2}
                     onChange={(e) => setSimUtil2(Number(e.target.value))}
-                    className="w-full accent-[#D4A017]"
+                    className="w-full accent-[#D4A017] cursor-pointer"
                   />
                 </div>
               </div>
@@ -271,7 +322,7 @@ export const InvestmentsModule: React.FC<InvestmentsModuleProps> = ({
                     type="number"
                     value={simPrice3}
                     onChange={(e) => setSimPrice3(Number(e.target.value))}
-                    className="w-full p-2 rounded-xl bg-[#262626] border border-[#333333] text-[#F4F4F2]"
+                    className="w-full p-2 rounded-xl bg-[#262626] border border-[#333333] text-[#F4F4F2] outline-none"
                   />
                 </div>
                 <div>
@@ -280,7 +331,7 @@ export const InvestmentsModule: React.FC<InvestmentsModuleProps> = ({
                     type="number"
                     value={simRate3}
                     onChange={(e) => setSimRate3(Number(e.target.value))}
-                    className="w-full p-2 rounded-xl bg-[#262626] border border-[#333333] text-[#F4F4F2]"
+                    className="w-full p-2 rounded-xl bg-[#262626] border border-[#333333] text-[#F4F4F2] outline-none"
                   />
                 </div>
                 <div>
@@ -291,7 +342,7 @@ export const InvestmentsModule: React.FC<InvestmentsModuleProps> = ({
                     max="90"
                     value={simUtil3}
                     onChange={(e) => setSimUtil3(Number(e.target.value))}
-                    className="w-full accent-[#D4A017]"
+                    className="w-full accent-[#D4A017] cursor-pointer"
                   />
                 </div>
               </div>
