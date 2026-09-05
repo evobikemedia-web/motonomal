@@ -1,14 +1,60 @@
-import React from 'react';
-import { ShieldCheck, Clock, User, Activity } from 'lucide-react';
+import React, { useState, useEffect } from 'react';
+import { ShieldCheck, Clock, User, Activity, RefreshCw } from 'lucide-react';
 import { AuditLog } from '../../types';
 import { useLanguage } from '../../context/LanguageContext';
+import { supabase } from '../../services/supabase';
 
 interface AuditLogModuleProps {
-  auditLogs: AuditLog[];
+  auditLogs?: AuditLog[]; // Conservé pour la compatibilité des props
 }
 
-export const AuditLogModule: React.FC<AuditLogModuleProps> = ({ auditLogs }) => {
+export const AuditLogModule: React.FC<AuditLogModuleProps> = () => {
   const { language } = useLanguage();
+  const [liveLogs, setLiveLogs] = useState<AuditLog[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+
+  const fetchAuditLogs = async () => {
+    try {
+      setIsLoading(true);
+      const { data, error } = await supabase
+        .from('audit_logs')
+        .select('*')
+        .order('timestamp', { ascending: false });
+
+      if (error) throw error;
+
+      const mapped = (data || []).map((log: any) => ({
+        id: log.id,
+        timestamp: log.timestamp,
+        userName: log.user_name || log.userEmail || 'Mehdi Ouhssain',
+        userRole: log.user_role || log.userRole || 'Admin',
+        action: log.action || 'INSERT',
+        module: log.target_module || log.module || 'System',
+        details: log.details || '',
+      })) as AuditLog[];
+
+      setLiveLogs(mapped);
+    } catch (error) {
+      console.error("Erreur lors du chargement des journaux d'audit:", error);
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    fetchAuditLogs();
+  }, []);
+
+  if (isLoading && liveLogs.length === 0) {
+    return (
+      <div className="flex flex-col items-center justify-center min-h-[60vh] text-[#D4A017] space-y-4">
+        <RefreshCw className="w-10 h-10 animate-spin" />
+        <p className="font-bold tracking-widest uppercase text-sm">
+          {language === 'fr' ? 'Chargement du journal d\'audit...' : 'Loading audit trail...'}
+        </p>
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-6 animate-fadeIn">
@@ -39,15 +85,35 @@ export const AuditLogModule: React.FC<AuditLogModuleProps> = ({ auditLogs }) => 
               </tr>
             </thead>
             <tbody className="divide-y divide-[#2A2A2A]">
-              {auditLogs.map((log) => (
-                <tr key={log.id} className="hover:bg-[#252525]">
-                  <td className="p-4 font-mono text-zinc-400">{new Date(log.timestamp).toLocaleString()}</td>
-                  <td className="p-4 font-bold text-[#D4A017]">{log.userName} ({log.userRole})</td>
-                  <td className="p-4 font-bold text-sky-400">{log.action}</td>
-                  <td className="p-4 font-semibold text-zinc-300">{log.module}</td>
-                  <td className="p-4 text-zinc-300">{log.details}</td>
+              {liveLogs.length === 0 ? (
+                <tr>
+                  <td colSpan={5} className="p-8 text-center text-zinc-500">
+                    {language === 'fr' ? 'Aucun enregistrement d\'audit dans le cloud.' : 'No audit records found in the cloud.'}
+                  </td>
                 </tr>
-              ))}
+              ) : (
+                liveLogs.map((log) => (
+                  <tr key={log.id} className="hover:bg-[#252525] transition-colors">
+                    <td className="p-4 font-mono text-zinc-400">
+                      {log.timestamp ? new Date(log.timestamp).toLocaleString() : 'N/A'}
+                    </td>
+                    <td className="p-4 font-bold text-[#D4A017]">
+                      {log.userName} ({log.userRole})
+                    </td>
+                    <td className="p-4 font-bold text-sky-400">
+                      <span className={`px-2 py-0.5 rounded text-[10px] uppercase font-bold border ${
+                        log.action === 'INSERT' ? 'bg-emerald-950 text-emerald-400 border-emerald-800' :
+                        log.action === 'DELETE' ? 'bg-rose-950 text-rose-400 border-rose-800' :
+                        'bg-sky-950 text-sky-400 border-sky-800'
+                      }`}>
+                        {log.action}
+                      </span>
+                    </td>
+                    <td className="p-4 font-semibold text-zinc-300">{log.module}</td>
+                    <td className="p-4 text-zinc-300">{log.details || 'N/A'}</td>
+                  </tr>
+                ))
+              )}
             </tbody>
           </table>
         </div>
