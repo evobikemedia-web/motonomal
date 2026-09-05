@@ -8,7 +8,6 @@ import { dbStore } from './services/db';
 
 // Auth Modules
 import { Login } from './components/auth/Login';
-import { Register } from './components/auth/Register';
 
 // Domain Modules
 import { ExecutiveDashboard } from './components/dashboard/ExecutiveDashboard';
@@ -34,8 +33,6 @@ import {
 
 const MainAppContent: React.FC = () => {
   const { user, login, hasPermission } = useAuth();
-  
-  const [authView, setAuthView] = useState<'login' | 'register'>('login');
   
   // Initialisation dynamique de l'onglet actif selon le rôle de l'utilisateur connecté
   const [activeTab, setActiveTab] = useState<string>(() => {
@@ -113,30 +110,21 @@ const MainAppContent: React.FC = () => {
 
   // --- GESTION DE LA CONNEXION ---
   if (!user) {
-    if (authView === 'login') {
-      return (
-        <Login 
-          onLoginSuccess={(roleStr) => {
-            const role = roleStr as UserRole;
-            login(role); // Enregistre l'utilisateur dans le AuthContext global
-
-            // Redirection intelligente selon le profil pour éviter l'écran noir
-            if (role === 'STAFF') {
-              setActiveTab('clients');
-            } else if (role === 'ACCOUNTING') {
-              setActiveTab('finance');
-            } else {
-              setActiveTab('dashboard');
-            }
-          }} 
-          onNavigateRegister={() => setAuthView('register')} 
-        />
-      );
-    }
     return (
-      <Register 
-        onRegisterSuccess={() => setAuthView('login')} 
-        onNavigateLogin={() => setAuthView('login')} 
+      <Login 
+        onLoginSuccess={(roleStr) => {
+          const role = roleStr as UserRole;
+          login(role); // Enregistre l'utilisateur dans le AuthContext global
+
+          // Redirection intelligente selon le profil pour éviter l'écran noir
+          if (role === 'STAFF') {
+            setActiveTab('clients');
+          } else if (role === 'ACCOUNTING') {
+            setActiveTab('finance');
+          } else {
+            setActiveTab('dashboard');
+          }
+        }} 
       />
     );
   }

@@ -195,14 +195,6 @@ export const Login: React.FC<LoginProps> = ({ onLoginSuccess, onNavigateRegister
             </div>
           </div>
 
-          <div className="text-center pt-2">
-            <p className="text-sm text-zinc-400">
-              {language === 'fr' ? "Vous n'avez pas de compte ?" : "Don't have an account?"}{' '}
-              <button onClick={onNavigateRegister} className="text-[#D4A017] font-bold hover:underline cursor-pointer">
-                {language === 'fr' ? 'Demander un accès' : 'Request access'}
-              </button>
-            </p>
-          </div>
         </div>
       </div>
     </div>
