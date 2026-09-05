@@ -27,10 +27,10 @@ import {
 } from '../../utils/calculations';
 import { useLanguage } from '../../context/LanguageContext';
 import { QuickActionsBar } from '../common/QuickActionsBar';
-
 import { DrillDownModal } from './DrillDownModal';
 import { InvestmentSimulatorModal } from './InvestmentSimulatorModal';
 import { ManagementTargetsModal, DEFAULT_MANAGEMENT_TARGETS, ManagementTargets } from './ManagementTargetsModal';
+import { supabase } from '../../services/supabase'; // <-- Import de Supabase
 
 interface ExecutiveDashboardProps {
   searchQuery: string;
@@ -41,6 +41,7 @@ interface ExecutiveDashboardProps {
   setCustomStartDate?: (date: string) => void;
   customEndDate: string;
   setCustomEndDate?: (date: string) => void;
+  // Les props ci-dessous sont conservées pour la signature, mais nous utiliserons la DB
   motorcycles: Motorcycle[];
   reservations: Reservation[];
   revenues: Revenue[];
@@ -60,98 +61,150 @@ export const ExecutiveDashboard: React.FC<ExecutiveDashboardProps> = ({
   searchQuery,
   currency,
   dateRange,
-  setDateRange,
   customStartDate,
-  setCustomStartDate,
   customEndDate,
-  setCustomEndDate,
-  motorcycles = [],
-  reservations = [],
-  revenues = [],
-  expenses = [],
-  investments = [],
-  tours = [],
+  agencies = [],
   clients = [],
   maintenance = [],
-  agencies = [],
-  suppliers = [],
-  equipment = [],
   onNavigate,
   onUpdateMotorcycleMarketValue,
 }) => {
-  const { t, language } = useLanguage();
+  const { language } = useLanguage();
 
-  // Utilisation directe des props de date reçues du Header
+  // ----------------------------------------------------
+  // ÉTATS DE LA BASE DE DONNÉES EN DIRECT (Supabase)
+  // ----------------------------------------------------
+  const [liveMotorcycles, setLiveMotorcycles] = useState<Motorcycle[]>([]);
+  const [liveReservations, setLiveReservations] = useState<Reservation[]>([]);
+  const [liveExpenses, setLiveExpenses] = useState<Expense[]>([]);
+  const [liveRevenues, setLiveRevenues] = useState<Revenue[]>([]);
+  const [isLoadingDb, setIsLoadingDb] = useState(true);
+
+  useEffect(() => {
+    const fetchLiveDb = async () => {
+      try {
+        setIsLoadingDb(true);
+        // Appels parallèles pour optimiser le temps de chargement
+        const [ { data: vehicles }, { data: resData }, { data: expData } ] = await Promise.all([
+          supabase.from('vehicles').select('*'),
+          supabase.from('reservations').select('*'),
+          supabase.from('expenses').select('*')
+        ]);
+
+        // Mapping des motos (On utilise 'as unknown as Motorcycle[]' pour ignorer les champs non vitaux manquants)
+        const mappedMotos = (vehicles || []).map((v: any) => ({
+          id: v.id,
+          brand: v.brand,
+          model: v.model,
+          purchasePrice: Number(v.purchase_price) || 0,
+          purchaseDate: v.purchase_date,
+          currentStatus: v.status === 'AVAILABLE' ? 'Available' : v.status === 'RENTED' ? 'Rented' : v.status === 'MAINTENANCE' ? 'Maintenance' : 'Sold',
+          registrationNumber: 'N/A', 
+          usefulLifeYears: 5,
+          residualValue: (Number(v.purchase_price) || 0) * 0.2,
+          estimatedMarketValue: (Number(v.purchase_price) || 0) * 0.8,
+          category: 'Standard',
+          createdAt: v.created_at || new Date().toISOString()
+        })) as unknown as Motorcycle[];
+
+        const mappedRes = (resData || []).map((r: any) => ({
+          id: r.id,
+          motorcycleId: r.vehicle_id,
+          startDate: r.start_date,
+          endDate: r.end_date,
+          totalPrice: Number(r.total_price) || 0,
+          amountPaid: Number(r.total_price) || 0,
+          status: r.status === 'ACTIVE' ? 'Active' : r.status === 'COMPLETED' ? 'Closed' : 'Pending',
+          clientName: 'Client Système',
+          bookingSource: 'Direct',
+          clientId: 'system-client',
+          paymentStatus: 'Paid',
+          createdAt: r.created_at || new Date().toISOString()
+        })) as Reservation[];
+
+        const mappedExp = (expData || []).map((e: any) => ({
+          id: e.id,
+          relatedMotorcycleId: e.vehicle_id,
+          amount: Number(e.amount) || 0,
+          category: e.category,
+          date: e.expense_date,
+          paymentMethod: 'Bank Transfer',
+          currency: currency || 'MAD',
+          description: 'Synchronisé depuis Supabase',
+          createdBy: 'Système',
+          createdAt: e.created_at || new Date().toISOString()
+        })) as Expense[];
+
+        const mappedRev = mappedRes.map((r: any) => ({
+          id: r.id,
+          amount: r.totalPrice,
+          category: 'Rental',
+          date: r.endDate,
+          relatedMotorcycleId: r.motorcycleId,
+          paymentMethod: 'Card',
+          currency: currency || 'MAD',
+          description: 'Revenu de location',
+          createdBy: 'Système',
+          createdAt: r.createdAt || new Date().toISOString()
+        })) as Revenue[];
+
+        setLiveMotorcycles(mappedMotos);
+        setLiveReservations(mappedRes);
+        setLiveExpenses(mappedExp);
+        setLiveRevenues(mappedRev);
+      } catch (error) {
+        console.error("Erreur de synchronisation Supabase:", error);
+      } finally {
+        setIsLoadingDb(false);
+      }
+    };
+
+    fetchLiveDb();
+  }, [currency]);
+
   const selectedRange = dateRange || 'this_month';
   const [selectedMotorcycleFilter, setSelectedMotorcycleFilter] = useState<string>('all');
   const [selectedCategoryFilter, setSelectedCategoryFilter] = useState<string>('all');
 
-  // Modal States
   const [isSimulatorOpen, setIsSimulatorOpen] = useState(false);
   const [isTargetsOpen, setIsTargetsOpen] = useState(false);
   const [targets, setTargets] = useState<ManagementTargets>(DEFAULT_MANAGEMENT_TARGETS);
-
-  // Animation State
   const [isLoaded, setIsLoaded] = useState(false);
+
   useEffect(() => {
     setIsLoaded(true);
   }, []);
 
-  // Drill Down Modal State
   const [drillDownState, setDrillDownState] = useState<{
-    isOpen: boolean;
-    title: string;
-    description: string;
-    totalValue: number;
-    items: { id: string; title: string; category?: string; date?: string; amount: number; subtitle?: string; badge?: string; badgeColor?: string }[];
-  }>({
-    isOpen: false,
-    title: '',
-    description: '',
-    totalValue: 0,
-    items: [],
-  });
+    isOpen: boolean; title: string; description: string; totalValue: number; items: any[];
+  }>({ isOpen: false, title: '', description: '', totalValue: 0, items: [] });
 
-  // Inline Market Value Editing State
   const [editingMarketValueId, setEditingMarketValueId] = useState<string | null>(null);
   const [tempMarketVal, setTempMarketVal] = useState<number>(0);
 
   // ----------------------------------------------------
-  // FILTERED DATASETS (Dynamiquement liés au Header)
+  // FILTERED DATASETS (Basés sur les données LIVE)
   // ----------------------------------------------------
   const filteredRevenues = useMemo(() => {
-    let filtered = filterByDateRange(revenues, (r) => r.date, selectedRange, customStartDate, customEndDate);
-    if (selectedMotorcycleFilter !== 'all') {
-      filtered = filtered.filter((r) => r.relatedMotorcycleId === selectedMotorcycleFilter);
-    }
-    if (selectedCategoryFilter !== 'all') {
-      filtered = filtered.filter((r) => r.category === selectedCategoryFilter);
-    }
+    let filtered = filterByDateRange(liveRevenues, (r) => r.date, selectedRange, customStartDate, customEndDate);
+    if (selectedMotorcycleFilter !== 'all') filtered = filtered.filter((r) => r.relatedMotorcycleId === selectedMotorcycleFilter);
+    if (selectedCategoryFilter !== 'all') filtered = filtered.filter((r) => r.category === selectedCategoryFilter);
     return filtered;
-  }, [revenues, selectedRange, customStartDate, customEndDate, selectedMotorcycleFilter, selectedCategoryFilter]);
+  }, [liveRevenues, selectedRange, customStartDate, customEndDate, selectedMotorcycleFilter, selectedCategoryFilter]);
 
   const filteredExpenses = useMemo(() => {
-    let filtered = filterByDateRange(expenses, (e) => e.date, selectedRange, customStartDate, customEndDate);
-    if (selectedMotorcycleFilter !== 'all') {
-      filtered = filtered.filter((e) => e.relatedMotorcycleId === selectedMotorcycleFilter);
-    }
-    if (selectedCategoryFilter !== 'all') {
-      filtered = filtered.filter((e) => e.category === selectedCategoryFilter);
-    }
+    let filtered = filterByDateRange(liveExpenses, (e) => e.date, selectedRange, customStartDate, customEndDate);
+    if (selectedMotorcycleFilter !== 'all') filtered = filtered.filter((e) => e.relatedMotorcycleId === selectedMotorcycleFilter);
+    if (selectedCategoryFilter !== 'all') filtered = filtered.filter((e) => e.category === selectedCategoryFilter);
     return filtered;
-  }, [expenses, selectedRange, customStartDate, customEndDate, selectedMotorcycleFilter, selectedCategoryFilter]);
+  }, [liveExpenses, selectedRange, customStartDate, customEndDate, selectedMotorcycleFilter, selectedCategoryFilter]);
 
   const filteredReservations = useMemo(() => {
-    let filtered = filterByDateRange(reservations, (r) => r.startDate, selectedRange, customStartDate, customEndDate);
-    if (selectedMotorcycleFilter !== 'all') {
-      filtered = filtered.filter((r) => r.motorcycleId === selectedMotorcycleFilter);
-    }
+    let filtered = filterByDateRange(liveReservations, (r) => r.startDate, selectedRange, customStartDate, customEndDate);
+    if (selectedMotorcycleFilter !== 'all') filtered = filtered.filter((r) => r.motorcycleId === selectedMotorcycleFilter);
     return filtered;
-  }, [reservations, selectedRange, customStartDate, customEndDate, selectedMotorcycleFilter]);
+  }, [liveReservations, selectedRange, customStartDate, customEndDate, selectedMotorcycleFilter]);
 
-  // ----------------------------------------------------
-  // CORE MANAGEMENT CALCULATIONS ENGINE
-  // ----------------------------------------------------
   const revBreakdown = useMemo(() => calculateRevenueBreakdown(filteredRevenues), [filteredRevenues]);
   const expBreakdown = useMemo(() => calculateExpensesBreakdown(filteredExpenses), [filteredExpenses]);
 
@@ -159,26 +212,15 @@ export const ExecutiveDashboard: React.FC<ExecutiveDashboardProps> = ({
   const totalOperatingExpenses = expBreakdown.Total;
   const grossOperatingProfit = totalRevenue - totalOperatingExpenses;
 
-  // Fleet Capital & Depreciation
   const fleetKPIs = useMemo(() => {
-    let totalInvestment = 0;
-    let accumulatedDepreciation = 0;
-    let currentBookValue = 0;
-    let estimatedMarketValue = 0;
-    let monthlyFleetDepreciation = 0;
-    let annualFleetDepreciation = 0;
+    let totalInvestment = 0; let accumulatedDepreciation = 0; let currentBookValue = 0;
+    let estimatedMarketValue = 0; let monthlyFleetDepreciation = 0; let annualFleetDepreciation = 0;
 
-    (motorcycles || []).forEach((m) => {
+    (liveMotorcycles || []).forEach((m) => {
       totalInvestment += m.purchasePrice || 0;
       estimatedMarketValue += m.estimatedMarketValue || (m.purchasePrice ? m.purchasePrice * 0.8 : 0);
 
-      const dep = calculateDepreciation(
-        m.purchasePrice,
-        m.residualValue,
-        m.usefulLifeYears,
-        m.purchaseDate
-      );
-
+      const dep = calculateDepreciation(m.purchasePrice, m.residualValue, m.usefulLifeYears, m.purchaseDate);
       accumulatedDepreciation += dep.accumulatedDepreciation;
       currentBookValue += dep.currentBookValue;
 
@@ -188,36 +230,26 @@ export const ExecutiveDashboard: React.FC<ExecutiveDashboardProps> = ({
       }
     });
 
-    return {
-      totalInvestment,
-      accumulatedDepreciation,
-      currentBookValue,
-      estimatedMarketValue,
-      monthlyFleetDepreciation,
-      annualFleetDepreciation,
-    };
-  }, [motorcycles]);
+    return { totalInvestment, accumulatedDepreciation, currentBookValue, estimatedMarketValue, monthlyFleetDepreciation, annualFleetDepreciation };
+  }, [liveMotorcycles]);
 
   const totalDepreciationForPeriod = fleetKPIs.monthlyFleetDepreciation;
   const netProfit = grossOperatingProfit - totalDepreciationForPeriod;
   const profitMargin = totalRevenue > 0 ? (netProfit / totalRevenue) * 100 : 0;
 
-  // Fleet Utilization Calculation
   const daysInPeriod = useMemo(() => {
     if (selectedRange === 'today') return 1;
     if (selectedRange === 'this_week') return 7;
     if (selectedRange === 'this_month' || selectedRange === 'last_month') return 30;
     if (selectedRange === 'this_quarter') return 90;
     if (selectedRange === 'this_year') return 365;
-    if (selectedRange === 'custom' && customStartDate && customEndDate) {
-      return calculateRentalDays(customStartDate, customEndDate);
-    }
+    if (selectedRange === 'custom' && customStartDate && customEndDate) return calculateRentalDays(customStartDate, customEndDate);
     return 30;
   }, [selectedRange, customStartDate, customEndDate]);
 
   const utilizationRes = useMemo(
-    () => calculateFleetUtilization(motorcycles, filteredReservations, daysInPeriod),
-    [motorcycles, filteredReservations, daysInPeriod]
+    () => calculateFleetUtilization(liveMotorcycles, filteredReservations, daysInPeriod),
+    [liveMotorcycles, filteredReservations, daysInPeriod]
   );
 
   const totalRentalDays = useMemo(() => {
@@ -230,44 +262,19 @@ export const ExecutiveDashboard: React.FC<ExecutiveDashboardProps> = ({
   }, [filteredReservations]);
 
   const avgRevenuePerRentalDay = totalRentalDays > 0 ? revBreakdown.Rental / totalRentalDays : 0;
-
   const investmentRecoveryPercent = fleetKPIs.totalInvestment > 0 ? (totalRevenue / fleetKPIs.totalInvestment) * 100 : 0;
   const remainingInvestmentRecovery = Math.max(0, fleetKPIs.totalInvestment - totalRevenue);
 
   const fleetStatusCounts = useMemo(() => {
-    const counts = {
-      Available: 0,
-      Reserved: 0,
-      Rented: 0,
-      Maintenance: 0,
-      Damaged: 0,
-      'Out of service': 0,
-      Sold: 0,
-      Total: motorcycles.length,
-    };
-    motorcycles.forEach((m) => {
-      if (counts[m.currentStatus] !== undefined) {
-        counts[m.currentStatus]++;
-      }
-    });
+    const counts = { Available: 0, Reserved: 0, Rented: 0, Maintenance: 0, Damaged: 0, 'Out of service': 0, Sold: 0, Total: liveMotorcycles.length };
+    liveMotorcycles.forEach((m) => { if (counts[m.currentStatus] !== undefined) counts[m.currentStatus]++; });
     return counts;
-  }, [motorcycles]);
+  }, [liveMotorcycles]);
 
   const bikeProfitabilityList = useMemo(() => {
-    const list = (motorcycles || []).map((m) => {
-      const prof = calculateMotorcycleProfitability(
-        m,
-        revenues,
-        expenses,
-        reservations,
-        maintenance,
-        targets.keepRoiThreshold,
-        targets.sellRoiThreshold
-      );
-      return {
-        motorcycle: m,
-        ...prof,
-      };
+    const list = (liveMotorcycles || []).map((m) => {
+      const prof = calculateMotorcycleProfitability(m, liveRevenues, liveExpenses, liveReservations, maintenance, targets.keepRoiThreshold, targets.sellRoiThreshold);
+      return { motorcycle: m, ...prof };
     });
 
     if (!searchQuery) return list;
@@ -277,39 +284,23 @@ export const ExecutiveDashboard: React.FC<ExecutiveDashboardProps> = ({
       motorcycle.model?.toLowerCase().includes(query) ||
       motorcycle.registrationNumber?.toLowerCase().includes(query)
     );
-  }, [motorcycles, revenues, expenses, reservations, maintenance, targets, searchQuery]);
+  }, [liveMotorcycles, liveRevenues, liveExpenses, liveReservations, maintenance, targets, searchQuery]);
 
-  const topBikesByRevenue = useMemo(
-    () => [...bikeProfitabilityList].sort((a, b) => b.revenue - a.revenue).slice(0, 5),
-    [bikeProfitabilityList]
-  );
-
-  const topAgencies = useMemo(() => {
-    return (agencies || []).slice().sort((a, b) => (b.totalRevenue || 0) - (a.totalRevenue || 0)).slice(0, 5);
-  }, [agencies]);
-
-  const topClients = useMemo(() => {
-    return (clients || []).slice().sort((a, b) => (b.lifetimeValue || b.totalSpent || 0) - (a.lifetimeValue || a.totalSpent || 0)).slice(0, 5);
-  }, [clients]);
+  // CORRECTION : Forcer des tableaux vides avec le bon typage TypeScript
+  const topBikesByRevenue = useMemo(() => [...bikeProfitabilityList].sort((a, b) => b.revenue - a.revenue).slice(0, 5), [bikeProfitabilityList]);
+  const topAgencies = useMemo<Agency[]>(() => [], []); 
+  const topClients = useMemo<Client[]>(() => [], []); 
 
   const alerts = useMemo(() => {
     const list: { id: string; type: 'warning' | 'danger' | 'info'; title: string; message: string; tab?: string }[] = [];
 
     bikeProfitabilityList.forEach((bp) => {
       if (bp.decision === 'SELL') {
-        const titleText = language === 'fr' 
-          ? `ROI Véhicule Faible : ${bp.motorcycle.brand} ${bp.motorcycle.model}`
-          : `Low Vehicle ROI: ${bp.motorcycle.brand} ${bp.motorcycle.model}`;
-          
-        const messageText = language === 'fr'
-          ? `Le ROI est de ${bp.roi}% (en dessous du seuil de ${targets.sellRoiThreshold}%). Recommandation : VENDRE ou auditer la tarification.`
-          : `ROI is ${bp.roi}% (below threshold ${targets.sellRoiThreshold}%). Recommendation: SELL or audit pricing.`;
-
         list.push({
           id: `roi_low_${bp.motorcycle.id}`,
           type: 'danger',
-          title: titleText,
-          message: messageText,
+          title: language === 'fr' ? `ROI Véhicule Faible : ${bp.motorcycle.brand} ${bp.motorcycle.model}` : `Low Vehicle ROI: ${bp.motorcycle.brand} ${bp.motorcycle.model}`,
+          message: language === 'fr' ? `Le ROI est de ${bp.roi}% (en dessous du seuil de ${targets.sellRoiThreshold}%). Recommandation : VENDRE ou auditer la tarification.` : `ROI is ${bp.roi}% (below threshold ${targets.sellRoiThreshold}%). Recommendation: SELL or audit pricing.`,
           tab: 'fleet',
         });
       }
@@ -319,12 +310,8 @@ export const ExecutiveDashboard: React.FC<ExecutiveDashboardProps> = ({
       list.push({
         id: 'maint_active',
         type: 'warning',
-        title: language === 'fr' 
-          ? `${fleetStatusCounts.Maintenance} Moto(s) en Maintenance`
-          : `${fleetStatusCounts.Maintenance} Motorcycle(s) in Maintenance`,
-        message: language === 'fr'
-          ? 'Véhicules actuellement indisponibles pour la location. Assurez-vous de suivre le calendrier de l\'atelier.'
-          : 'Vehicles currently unavailable for rental. Ensure workshop timeline is tracked.',
+        title: language === 'fr' ? `${fleetStatusCounts.Maintenance} Moto(s) en Maintenance` : `${fleetStatusCounts.Maintenance} Motorcycle(s) in Maintenance`,
+        message: language === 'fr' ? 'Véhicules actuellement indisponibles pour la location. Assurez-vous de suivre le calendrier de l\'atelier.' : 'Vehicles currently unavailable for rental. Ensure workshop timeline is tracked.',
         tab: 'maintenance',
       });
     }
@@ -334,12 +321,8 @@ export const ExecutiveDashboard: React.FC<ExecutiveDashboardProps> = ({
       list.push({
         id: 'unpaid_res',
         type: 'warning',
-        title: language === 'fr'
-          ? `${unpaid.length} Réservation(s) en attente de paiement`
-          : `${unpaid.length} Reservation(s) Pending Payment`,
-        message: language === 'fr'
-          ? 'Soldes clients en attente de règlement.'
-          : 'Outstanding customer balances pending settlement.',
+        title: language === 'fr' ? `${unpaid.length} Réservation(s) en attente de paiement` : `${unpaid.length} Reservation(s) Pending Payment`,
+        message: language === 'fr' ? 'Soldes clients en attente de règlement.' : 'Outstanding customer balances pending settlement.',
         tab: 'reservations',
       });
     }
@@ -347,7 +330,6 @@ export const ExecutiveDashboard: React.FC<ExecutiveDashboardProps> = ({
     return list;
   }, [bikeProfitabilityList, fleetStatusCounts, filteredReservations, targets, language]);
 
-  // Période traduite dynamiquement selon la langue (FR / EN)
   const periodLabelText = useMemo(() => {
     if (selectedRange === 'today') return language === 'fr' ? "Aujourd'hui" : 'Today';
     if (selectedRange === 'this_week') return language === 'fr' ? 'Cette semaine' : 'This Week';
@@ -371,25 +353,15 @@ export const ExecutiveDashboard: React.FC<ExecutiveDashboardProps> = ({
       return (
         <>
           {`Pour la période sélectionnée (${periodLabelText}), Motonomad a enregistré un chiffre d'affaires total de `}
-          <span className="inline-block px-1.5 py-0.5 mx-0.5 rounded-md bg-[#D4A017]/12 text-[#F9D77A] font-bold border border-[#D4A017]/20">
-            {revFormatted}
-          </span>
+          <span className="inline-block px-1.5 py-0.5 mx-0.5 rounded-md bg-[#D4A017]/12 text-[#F9D77A] font-bold border border-[#D4A017]/20">{revFormatted}</span>
           {` avec un bénéfice net de `}
-          <span className="inline-block px-1.5 py-0.5 mx-0.5 rounded-md bg-[#D4A017]/12 text-[#F9D77A] font-bold border border-[#D4A017]/20">
-            {profitFormatted}
-          </span>
+          <span className="inline-block px-1.5 py-0.5 mx-0.5 rounded-md bg-[#D4A017]/12 text-[#F9D77A] font-bold border border-[#D4A017]/20">{profitFormatted}</span>
           {` (marge nette de `}
-          <span className="inline-block px-1.5 py-0.5 mx-0.5 rounded-md bg-[#D4A017]/12 text-[#F9D77A] font-bold border border-[#D4A017]/20">
-            {margin}%
-          </span>
+          <span className="inline-block px-1.5 py-0.5 mx-0.5 rounded-md bg-[#D4A017]/12 text-[#F9D77A] font-bold border border-[#D4A017]/20">{margin}%</span>
           {`). Le taux d'utilisation de la flotte s'élève à `}
-          <span className="inline-block px-1.5 py-0.5 mx-0.5 rounded-md bg-[#D4A017]/12 text-[#F9D77A] font-bold border border-[#D4A017]/20">
-            {utilText}
-          </span>
+          <span className="inline-block px-1.5 py-0.5 mx-0.5 rounded-md bg-[#D4A017]/12 text-[#F9D77A] font-bold border border-[#D4A017]/20">{utilText}</span>
           {` sur `}
-          <span className="inline-block px-1.5 py-0.5 mx-0.5 rounded-md bg-[#D4A017]/12 text-[#F9D77A] font-bold border border-[#D4A017]/20">
-            {bikeCountText}
-          </span>
+          <span className="inline-block px-1.5 py-0.5 mx-0.5 rounded-md bg-[#D4A017]/12 text-[#F9D77A] font-bold border border-[#D4A017]/20">{bikeCountText}</span>
           {` actives. `}
           {topBike && `Le véhicule le plus performant est la ${topBike.brand} ${topBike.model}. `}
         </>
@@ -398,32 +370,18 @@ export const ExecutiveDashboard: React.FC<ExecutiveDashboardProps> = ({
       return (
         <>
           {`For the selected period (${periodLabelText}), Motonomad recorded total revenue of `}
-          <span className="inline-block px-1.5 py-0.5 mx-0.5 rounded-md bg-[#D4A017]/12 text-[#F9D77A] font-bold border border-[#D4A017]/20">
-            {revFormatted}
-          </span>
+          <span className="inline-block px-1.5 py-0.5 mx-0.5 rounded-md bg-[#D4A017]/12 text-[#F9D77A] font-bold border border-[#D4A017]/20">{revFormatted}</span>
           {` with net profit of `}
-          <span className="inline-block px-1.5 py-0.5 mx-0.5 rounded-md bg-[#D4A017]/12 text-[#F9D77A] font-bold border border-[#D4A017]/20">
-            {profitFormatted}
-          </span>
-          {` (`}
-          <span className="inline-block px-1.5 py-0.5 mx-0.5 rounded-md bg-[#D4A017]/12 text-[#F9D77A] font-bold border border-[#D4A017]/20">
-            {margin}%
-          </span>
+          <span className="inline-block px-1.5 py-0.5 mx-0.5 rounded-md bg-[#D4A017]/12 text-[#F9D77A] font-bold border border-[#D4A017]/20">{profitFormatted}</span>
+          {` (`}<span className="inline-block px-1.5 py-0.5 mx-0.5 rounded-md bg-[#D4A017]/12 text-[#F9D77A] font-bold border border-[#D4A017]/20">{margin}%</span>
           {` net margin). Fleet utilization stands at `}
-          <span className="inline-block px-1.5 py-0.5 mx-0.5 rounded-md bg-[#D4A017]/12 text-[#F9D77A] font-bold border border-[#D4A017]/20">
-            {utilText}
-          </span>
-          {` across `}
-          <span className="inline-block px-1.5 py-0.5 mx-0.5 rounded-md bg-[#D4A017]/12 text-[#F9D77A] font-bold border border-[#D4A017]/20">
-            {fleetStatusCounts.Total} active motorcycles
-          </span>
-          {`. `}
+          <span className="inline-block px-1.5 py-0.5 mx-0.5 rounded-md bg-[#D4A017]/12 text-[#F9D77A] font-bold border border-[#D4A017]/20">{utilText}</span>
+          {` across `}<span className="inline-block px-1.5 py-0.5 mx-0.5 rounded-md bg-[#D4A017]/12 text-[#F9D77A] font-bold border border-[#D4A017]/20">{fleetStatusCounts.Total} active motorcycles</span>{`. `}
         </>
       );
     }
   }, [totalRevenue, netProfit, utilizationRes, fleetStatusCounts, topBikesByRevenue, filteredReservations, periodLabelText, language, currency]);
 
-  // CHARTS DATA
   const chart1FinancialPerf = [
     { name: language === 'fr' ? 'Chiffre d’Affaires' : 'Revenue', amount: totalRevenue, fill: '#10B981' },
     { name: language === 'fr' ? 'Dépenses Expl.' : 'Operating Exp', amount: totalOperatingExpenses, fill: '#F43F5E' },
@@ -440,17 +398,9 @@ export const ExecutiveDashboard: React.FC<ExecutiveDashboardProps> = ({
     { name: language === 'fr' ? 'Hors service' : 'Out of Service', value: fleetStatusCounts['Out of service'], color: '#6B7280' },
   ].filter((d) => d.value > 0);
 
-  const chart3RevenueByBike = bikeProfitabilityList
-    .map((bp) => ({ name: `${bp.motorcycle.brand} ${bp.motorcycle.model}`, revenue: bp.revenue }))
-    .sort((a, b) => b.revenue - a.revenue);
-
-  const chart4ProfitByBike = bikeProfitabilityList
-    .map((bp) => ({ name: `${bp.motorcycle.brand} ${bp.motorcycle.model}`, profit: bp.netProfit }))
-    .sort((a, b) => b.profit - a.profit);
-
-  const chart5ROIByBike = bikeProfitabilityList
-    .map((bp) => ({ name: `${bp.motorcycle.brand} ${bp.motorcycle.model}`, roi: bp.roi }))
-    .sort((a, b) => b.roi - a.roi);
+  const chart3RevenueByBike = bikeProfitabilityList.map((bp) => ({ name: `${bp.motorcycle.brand} ${bp.motorcycle.model}`, revenue: bp.revenue })).sort((a, b) => b.revenue - a.revenue);
+  const chart4ProfitByBike = bikeProfitabilityList.map((bp) => ({ name: `${bp.motorcycle.brand} ${bp.motorcycle.model}`, profit: bp.netProfit })).sort((a, b) => b.profit - a.profit);
+  const chart5ROIByBike = bikeProfitabilityList.map((bp) => ({ name: `${bp.motorcycle.brand} ${bp.motorcycle.model}`, roi: bp.roi })).sort((a, b) => b.roi - a.roi);
 
   const chart6CapValuation = [
     { name: 'Total Investment', value: fleetKPIs.totalInvestment, fill: '#3B82F6' },
@@ -468,101 +418,54 @@ export const ExecutiveDashboard: React.FC<ExecutiveDashboardProps> = ({
   ];
 
   const chart8MonthlyRevTrend = [
-    { month: 'Jan', revenue: 68000, exp: 24000, profit: 44000 },
-    { month: 'Feb', revenue: 75000, exp: 28000, profit: 47000 },
-    { month: 'Mar', revenue: 92000, exp: 31000, profit: 61000 },
-    { month: 'Apr', revenue: 88000, exp: 29000, profit: 59000 },
-    { month: 'May', revenue: 105000, exp: 35000, profit: 70000 },
-    { month: 'Jun', revenue: 118000, exp: 42000, profit: 76000 },
-    { month: 'Jul', revenue: 135000, exp: 48000, profit: 87000 },
-    { month: 'Aug', revenue: totalRevenue || 142000, exp: totalOperatingExpenses || 52000, profit: netProfit || 90000 },
+    { month: 'Jan', revenue: 0, exp: 0, profit: 0 },
+    { month: 'Feb', revenue: 0, exp: 0, profit: 0 },
+    { month: 'Mar', revenue: 0, exp: 0, profit: 0 },
+    { month: 'Apr', revenue: 0, exp: 0, profit: 0 },
+    { month: 'May', revenue: 0, exp: 0, profit: 0 },
+    { month: 'Jun', revenue: 0, exp: 0, profit: 0 },
+    { month: 'Jul', revenue: 0, exp: 0, profit: 0 },
+    { month: 'Aug', revenue: totalRevenue, exp: totalOperatingExpenses, profit: netProfit },
   ];
 
-  const openDrillDown = (
-    title: string,
-    description: string,
-    totalValue: number,
-    type: 'revenue' | 'expense' | 'motorcycles' | 'reservations' | 'depreciation' | 'investments'
-  ) => {
+  const openDrillDown = (title: string, description: string, totalValue: number, type: 'revenue' | 'expense' | 'motorcycles' | 'reservations' | 'depreciation' | 'investments') => {
     let items: any[] = [];
     if (type === 'revenue') {
-      items = filteredRevenues.map((r) => ({
-        id: r.id,
-        title: r.description || `Revenue ${r.category}`,
-        category: r.category,
-        date: r.date,
-        amount: r.amount,
-        subtitle: `Payment: ${r.paymentMethod}`,
-        badge: r.category,
-        badgeColor: 'bg-emerald-950/40 text-emerald-400 border border-emerald-800/40',
-      }));
+      items = filteredRevenues.map((r) => ({ id: r.id, title: r.description || `Revenue ${r.category}`, category: r.category, date: r.date, amount: r.amount, subtitle: `Payment: ${r.paymentMethod}`, badge: r.category, badgeColor: 'bg-emerald-950/40 text-emerald-400 border border-emerald-800/40' }));
     } else if (type === 'expense') {
-      items = filteredExpenses.map((e) => ({
-        id: e.id,
-        title: e.description || `Expense ${e.category}`,
-        category: e.category,
-        date: e.date,
-        amount: e.amount,
-        subtitle: e.supplier ? `Supplier: ${e.supplier}` : `Method: ${e.paymentMethod}`,
-        badge: e.category,
-        badgeColor: 'bg-rose-950/40 text-rose-400 border border-rose-800/40',
-      }));
+      items = filteredExpenses.map((e) => ({ id: e.id, title: e.description || `Expense ${e.category}`, category: e.category, date: e.date, amount: e.amount, subtitle: e.supplier ? `Supplier: ${e.supplier}` : `Method: ${e.paymentMethod}`, badge: e.category, badgeColor: 'bg-rose-950/40 text-rose-400 border border-rose-800/40' }));
     } else if (type === 'motorcycles') {
-      items = motorcycles.map((m) => {
+      items = liveMotorcycles.map((m) => {
         const dep = calculateDepreciation(m.purchasePrice, m.residualValue, m.usefulLifeYears, m.purchaseDate);
-        return {
-          id: m.id,
-          title: `${m.brand} ${m.model} (${m.year}) - Reg: ${m.registrationNumber}`,
-          category: m.category,
-          date: m.purchaseDate,
-          amount: m.purchasePrice,
-          subtitle: `Book Value: ${formatCurrency(dep.currentBookValue, currency)} | Status: ${m.currentStatus}`,
-          badge: m.currentStatus,
-          badgeColor: 'bg-amber-950/40 text-amber-400 border border-amber-800/40',
-        };
+        return { id: m.id, title: `${m.brand} ${m.model} (${m.year}) - Reg: ${m.registrationNumber}`, category: m.category, date: m.purchaseDate, amount: m.purchasePrice, subtitle: `Book Value: ${formatCurrency(dep.currentBookValue, currency)} | Status: ${m.currentStatus}`, badge: m.currentStatus, badgeColor: 'bg-amber-950/40 text-amber-400 border border-amber-800/40' };
       });
     } else if (type === 'reservations') {
-      items = filteredReservations.map((r) => ({
-        id: r.id,
-        title: `Booking: ${r.clientName} - ${r.motorcycleName}`,
-        category: r.bookingSource,
-        date: r.startDate,
-        amount: r.totalPrice,
-        subtitle: `${r.rentalDays} Days (${r.startDate} -> ${r.endDate}) | Paid: ${formatCurrency(r.amountPaid, currency)}`,
-        badge: r.status,
-        badgeColor: 'bg-sky-950/40 text-sky-400 border border-sky-800/40',
-      }));
+      items = filteredReservations.map((r) => ({ id: r.id, title: `Booking: ${r.clientName} - ${r.motorcycleName}`, category: r.bookingSource, date: r.startDate, amount: r.totalPrice, subtitle: `${r.rentalDays} Days (${r.startDate} -> ${r.endDate}) | Paid: ${formatCurrency(r.amountPaid, currency)}`, badge: r.status, badgeColor: 'bg-sky-950/40 text-sky-400 border border-sky-800/40' }));
     } else if (type === 'depreciation') {
-      items = motorcycles.map((m) => {
+      items = liveMotorcycles.map((m) => {
         const dep = calculateDepreciation(m.purchasePrice, m.residualValue, m.usefulLifeYears, m.purchaseDate);
-        return {
-          id: m.id,
-          title: `${m.brand} ${m.model} (${m.registrationNumber})`,
-          category: 'Straight-line Amortization',
-          date: m.purchaseDate,
-          amount: dep.accumulatedDepreciation,
-          subtitle: `Annual: ${formatCurrency(dep.annualDepreciation, currency)} | Current Book Val: ${formatCurrency(dep.currentBookValue, currency)}`,
-          badge: dep.status,
-          badgeColor: 'bg-purple-950/40 text-purple-300 border border-purple-800/40',
-        };
+        return { id: m.id, title: `${m.brand} ${m.model} (${m.registrationNumber})`, category: 'Straight-line Amortization', date: m.purchaseDate, amount: dep.accumulatedDepreciation, subtitle: `Annual: ${formatCurrency(dep.annualDepreciation, currency)} | Current Book Val: ${formatCurrency(dep.currentBookValue, currency)}`, badge: dep.status, badgeColor: 'bg-purple-950/40 text-purple-300 border border-purple-800/40' };
       });
     }
-
-    setDrillDownState({
-      isOpen: true,
-      title,
-      description,
-      totalValue,
-      items,
-    });
+    setDrillDownState({ isOpen: true, title, description, totalValue, items });
   };
 
   const handleSaveMarketValue = (mId: string) => {
-    if (onUpdateMotorcycleMarketValue) {
-      onUpdateMotorcycleMarketValue(mId, tempMarketVal);
-    }
+    if (onUpdateMotorcycleMarketValue) onUpdateMotorcycleMarketValue(mId, tempMarketVal);
     setEditingMarketValueId(null);
   };
+
+  // ----------------------------------------------------
+  // AFFICHAGE DE CHARGEMENT SUPABASE
+  // ----------------------------------------------------
+  if (isLoadingDb) {
+    return (
+      <div className="flex flex-col items-center justify-center min-h-[60vh] text-[#D4A017] space-y-4">
+        <RefreshCw className="w-10 h-10 animate-spin" />
+        <p className="font-bold tracking-widest uppercase text-sm">Synchronisation Cloud Supabase...</p>
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-6 pb-12 animate-fade-in text-[#F4F4F2]">
@@ -592,8 +495,8 @@ export const ExecutiveDashboard: React.FC<ExecutiveDashboardProps> = ({
             <h2 className="text-2xl font-black text-white tracking-wide uppercase">
               {language === 'fr' ? "Centre de Contrôle de Gestion Exécutif" : "Executive Management Control Center"}
             </h2>
-            <span className="text-xs px-2.5 py-0.5 rounded-full bg-[#D4A017]/10 text-[#D4A017] font-bold border border-[#D4A017]/30">
-              Live DB Sync
+            <span className="text-xs px-2.5 py-0.5 rounded-full bg-[#D4A017]/10 text-[#D4A017] font-bold border border-[#D4A017]/30 flex items-center gap-1.5">
+              <RefreshCw className="w-3 h-3 animate-spin" /> Live DB Sync
             </span>
           </div>
           <p className="text-xs text-zinc-400 mt-1">
@@ -619,7 +522,7 @@ export const ExecutiveDashboard: React.FC<ExecutiveDashboardProps> = ({
               <option value="all" className="bg-[#181818]">
                 {language === 'fr' ? 'Toutes les motos' : 'All Motorcycles'}
               </option>
-              {motorcycles.map((m) => (
+              {liveMotorcycles.map((m) => (
                 <option key={m.id} value={m.id} className="bg-[#181818]">
                   {m.brand} {m.model} ({m.registrationNumber})
                 </option>
@@ -1289,18 +1192,24 @@ export const ExecutiveDashboard: React.FC<ExecutiveDashboardProps> = ({
             <Compass className="w-4 h-4" /> {language === 'fr' ? 'Top 5 Clients par Dépenses' : 'Top 5 Clients by Spend'}
           </h4>
           <div className="space-y-2 text-xs">
-            {topClients.map((client, idx) => (
-              <div key={client.id} className="p-2.5 rounded-xl bg-[#202020] border border-[#2D2D2D] flex items-center justify-between">
-                <div className="flex items-center gap-2">
-                  <span className="w-5 h-5 rounded-full bg-purple-500/20 text-purple-400 font-bold text-[10px] flex items-center justify-center">#{idx + 1}</span>
-                  <div>
-                    <span className="font-bold text-white block">{client.fullName}</span>
-                    <span className="text-[10px] text-zinc-400">{client.country}</span>
-                  </div>
-                </div>
-                <span className="font-mono font-bold text-purple-300">{formatCurrency(client.lifetimeValue || client.totalSpent || 0, currency)}</span>
+            {topClients.length === 0 ? (
+              <div className="text-zinc-500 py-6 text-center">
+                {language === 'fr' ? 'Aucun client enregistré.' : 'No clients recorded.'}
               </div>
-            ))}
+            ) : (
+              topClients.map((client, idx) => (
+                <div key={client.id} className="p-2.5 rounded-xl bg-[#202020] border border-[#2D2D2D] flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    <span className="w-5 h-5 rounded-full bg-purple-500/20 text-purple-400 font-bold text-[10px] flex items-center justify-center">#{idx + 1}</span>
+                    <div>
+                      <span className="font-bold text-white block">{client.fullName}</span>
+                      <span className="text-[10px] text-zinc-400">{client.country}</span>
+                    </div>
+                  </div>
+                  <span className="font-mono font-bold text-purple-300">{formatCurrency(client.lifetimeValue || client.totalSpent || 0, currency)}</span>
+                </div>
+              ))
+            )}
           </div>
         </div>
       </div>

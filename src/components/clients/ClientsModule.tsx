@@ -1,17 +1,18 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { 
   Users, Search, Plus, Filter, Download, Mail, Phone, MapPin, 
-  FileText, Shield, Calendar, DollarSign, Edit, Trash2, ExternalLink, MessageSquare, CreditCard, IdCard
+  FileText, Shield, Calendar, DollarSign, Edit, Trash2, ExternalLink, MessageSquare, CreditCard, IdCard, RefreshCw
 } from 'lucide-react';
 import { Client, Reservation } from '../../types';
-import { dbStore } from '../../services/db';
 import { Modal } from '../common/Modal';
 import { EmptyState } from '../common/EmptyState';
 import { ConfirmDialog } from '../common/ConfirmDialog';
 import { formatCurrency } from '../../utils/calculations';
 import { useLanguage } from '../../context/LanguageContext';
+import { supabase } from '../../services/supabase'; // <-- Import de Supabase
 
 interface ClientsModuleProps {
+  // On garde les props pour la compatibilité avec le reste de l'app
   clients: Client[];
   reservations: Reservation[];
   currency: 'MAD' | 'EUR' | 'USD';
@@ -20,13 +21,78 @@ interface ClientsModuleProps {
 }
 
 export const ClientsModule: React.FC<ClientsModuleProps> = ({
-  clients,
   reservations,
   currency,
   onUpdate,
   initialOpenAddModal = false,
 }) => {
   const { t, formatCurrencyVal, language } = useLanguage();
+  
+  // ----------------------------------------------------
+  // ÉTATS DE LA BASE DE DONNÉES EN DIRECT (Supabase)
+  // ----------------------------------------------------
+  const [liveClients, setLiveClients] = useState<Client[]>([]);
+  const [isLoadingDb, setIsLoadingDb] = useState(true);
+
+  const fetchLiveClients = async () => {
+    try {
+      setIsLoadingDb(true);
+      const { data, error } = await supabase
+        .from('clients')
+        .select('*')
+        .order('created_at', { ascending: false });
+
+      if (error) throw error;
+
+      // Mapping des données Supabase vers l'interface Client React
+      const mappedClients = (data || []).map((c: any) => {
+        // Optionnel : Calculer dynamiquement les dépenses si on a les réservations
+        const clientReservations = reservations.filter(r => r.clientId === c.id);
+        const bookingsCount = clientReservations.length;
+        const totalSpent = clientReservations.reduce((sum, r) => sum + r.totalPrice, 0);
+
+        return {
+          id: c.id,
+          firstName: c.first_name,
+          lastName: c.last_name,
+          fullName: `${c.first_name} ${c.last_name}`,
+          email: c.email,
+          phone: c.phone,
+          whatsapp: c.whatsapp || c.phone,
+          nationality: c.nationality,
+          country: c.country_of_residence,
+          passportNumber: c.passport_number,
+          passportExpiry: c.passport_expiry,
+          licenseNumber: c.license_number,
+          licenseCategory: c.license_category || 'A',
+          licenseExpiry: c.license_expiry,
+          emergencyContact: c.emergency_contact,
+          notes: c.notes,
+          createdAt: c.created_at,
+          totalSpent: totalSpent,
+          bookingsCount: bookingsCount,
+          avgBookingValue: bookingsCount > 0 ? totalSpent / bookingsCount : 0,
+          lifetimeValue: totalSpent,
+          // Attributs requis par l'interface mais non vitaux
+          dateOfBirth: '1990-01-01',
+          address: '',
+          createdBy: 'Admin',
+        } as Client;
+      });
+
+      setLiveClients(mappedClients);
+    } catch (error) {
+      console.error("Erreur de synchronisation Supabase (Clients):", error);
+    } finally {
+      setIsLoadingDb(false);
+    }
+  };
+
+  useEffect(() => {
+    fetchLiveClients();
+  }, [reservations]); // Se met à jour si les réservations changent pour recalculer les dépenses
+
+  // UI States
   const [search, setSearch] = useState('');
   const [nationalityFilter, setNationalityFilter] = useState('ALL');
   const [selectedClient, setSelectedClient] = useState<Client | null>(null);
@@ -46,9 +112,8 @@ export const ClientsModule: React.FC<ClientsModuleProps> = ({
     passportNumber: '',
     passportExpiry: '',
     licenseNumber: '',
-    licenseIssueDate: '',
-    licenseExpiry: '',
     licenseCategory: 'A',
+    licenseExpiry: '',
     emergencyContact: '',
     notes: '',
   });
@@ -65,76 +130,83 @@ export const ClientsModule: React.FC<ClientsModuleProps> = ({
       passportNumber: '',
       passportExpiry: '',
       licenseNumber: '',
-      licenseIssueDate: '',
-      licenseExpiry: '',
       licenseCategory: 'A',
+      licenseExpiry: '',
       emergencyContact: '',
       notes: '',
     });
     setIsAddModalOpen(true);
   };
 
-  const handleSave = (e: React.FormEvent) => {
+  const handleSave = async (e: React.FormEvent) => {
     e.preventDefault();
-    const fullName = `${formData.firstName} ${formData.lastName}`.trim();
+    setIsLoadingDb(true);
 
-    if (isEditModalOpen && selectedClient) {
-      dbStore.updateItem<Client>('clients', selectedClient.id, {
-        ...formData,
-        fullName,
-      });
-      setIsEditModalOpen(false);
-    } else {
-      const newClient: Client = {
-        id: `cli-${Date.now()}`,
-        firstName: formData.firstName || '',
-        lastName: formData.lastName || '',
-        fullName,
-        nationality: formData.nationality || 'Other',
-        dateOfBirth: formData.dateOfBirth || '1990-01-01',
-        phone: formData.phone || '',
-        whatsapp: formData.whatsapp || formData.phone || '',
+    try {
+      // Préparation du Payload pour Supabase
+      const payload = {
+        first_name: formData.firstName || '',
+        last_name: formData.lastName || '',
         email: formData.email || '',
-        address: formData.address || '',
-        country: formData.country || 'France',
-        passportNumber: formData.passportNumber || '',
-        passportExpiry: formData.passportExpiry || '',
-        licenseNumber: formData.licenseNumber || '',
-        licenseIssueDate: formData.licenseIssueDate || '',
-        licenseExpiry: formData.licenseExpiry || '',
-        licenseCategory: formData.licenseCategory || 'A',
-        emergencyContact: formData.emergencyContact || '',
-        notes: formData.notes || '',
-        totalSpent: 0,
-        bookingsCount: 0,
-        avgBookingValue: 0,
-        lifetimeValue: 0,
-        createdAt: new Date().toISOString(),
-        createdBy: 'Admin',
+        phone: formData.phone || '',
+        whatsapp: formData.whatsapp || null,
+        nationality: formData.nationality || null,
+        country_of_residence: formData.country || null,
+        passport_number: formData.passportNumber || null,
+        passport_expiry: formData.passportExpiry || null,
+        license_number: formData.licenseNumber || null,
+        license_category: formData.licenseCategory || 'A',
+        license_expiry: formData.licenseExpiry || null,
+        emergency_contact: formData.emergencyContact || null,
+        notes: formData.notes || null,
       };
-      dbStore.addItem<Client>('clients', newClient);
-      setIsAddModalOpen(false);
-    }
-    onUpdate();
-  };
 
-  const handleDelete = () => {
-    if (deleteClientId) {
-      dbStore.deleteItem<Client>('clients', deleteClientId);
-      setDeleteClientId(null);
+      if (isEditModalOpen && selectedClient) {
+        // Mise à jour Cloud
+        await supabase.from('clients').update(payload).eq('id', selectedClient.id);
+      } else {
+        // Insertion Cloud
+        await supabase.from('clients').insert([payload]);
+      }
+
+      await fetchLiveClients(); // Rafraîchir la liste avec les nouvelles données
+      setIsAddModalOpen(false);
+      setIsEditModalOpen(false);
       setSelectedClient(null);
       onUpdate();
+    } catch (error) {
+      console.error("Erreur lors de la sauvegarde :", error);
+      alert(language === 'fr' ? "Erreur lors de l'enregistrement." : "Error saving record.");
+    } finally {
+      setIsLoadingDb(false);
     }
   };
 
-  // Filter clients
-  const filteredClients = clients.filter((c) => {
+  const handleDelete = async () => {
+    if (deleteClientId) {
+      setIsLoadingDb(true);
+      try {
+        await supabase.from('clients').delete().eq('id', deleteClientId);
+        await fetchLiveClients();
+        setDeleteClientId(null);
+        setSelectedClient(null);
+        onUpdate();
+      } catch (error) {
+        console.error("Erreur lors de la suppression :", error);
+      } finally {
+        setIsLoadingDb(false);
+      }
+    }
+  };
+
+  // Filter clients on the live data
+  const filteredClients = liveClients.filter((c) => {
     const matchesSearch = 
       c.fullName.toLowerCase().includes(search.toLowerCase()) ||
       c.email.toLowerCase().includes(search.toLowerCase()) ||
       c.phone.includes(search) ||
-      c.passportNumber.toLowerCase().includes(search.toLowerCase()) ||
-      c.licenseNumber.toLowerCase().includes(search.toLowerCase());
+      (c.passportNumber && c.passportNumber.toLowerCase().includes(search.toLowerCase())) ||
+      (c.licenseNumber && c.licenseNumber.toLowerCase().includes(search.toLowerCase()));
     
     const matchesNat = nationalityFilter === 'ALL' || c.nationality === nationalityFilter;
     return matchesSearch && matchesNat;
@@ -151,17 +223,29 @@ export const ClientsModule: React.FC<ClientsModuleProps> = ({
     a.click();
   };
 
-  const nationalities = Array.from(new Set(clients.map((c) => c.nationality)));
+  const nationalities = Array.from(new Set(liveClients.map((c) => c.nationality).filter(Boolean)));
+
+  if (isLoadingDb && liveClients.length === 0) {
+    return (
+      <div className="flex flex-col items-center justify-center min-h-[60vh] text-[#D4A017] space-y-4">
+        <RefreshCw className="w-10 h-10 animate-spin" />
+        <p className="font-bold tracking-widest uppercase text-sm">Synchronisation des Clients...</p>
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-6 animate-fadeIn text-[#F4F4F2]">
       {/* Header & Controls */}
       <div className="flex flex-col md:flex-row md:items-end justify-between gap-4">
         <div>
-          <h2 className="text-2xl font-black text-white flex items-center gap-2.5 tracking-wide">
-            <Users className="w-6 h-6 text-[#D4A017]" /> 
-            {language === 'fr' ? 'Répertoire des Clients' : 'Client Directory'}
-          </h2>
+          <div className="flex items-center gap-2.5">
+            <h2 className="text-2xl font-black text-white flex items-center gap-2.5 tracking-wide">
+              <Users className="w-6 h-6 text-[#D4A017]" /> 
+              {language === 'fr' ? 'Répertoire des Clients' : 'Client Directory'}
+            </h2>
+            {isLoadingDb && <RefreshCw className="w-4 h-4 text-zinc-500 animate-spin" />}
+          </div>
           <p className="text-sm text-zinc-400 mt-1.5 font-medium">
             {language === 'fr' 
               ? 'Gérez les profils, les pièces d’identité et l’historique des réservations.'
@@ -238,7 +322,7 @@ export const ClientsModule: React.FC<ClientsModuleProps> = ({
                     </div>
                     <div className="min-w-0">
                       <h4 className="font-bold text-sm text-white truncate">{client.fullName}</h4>
-                      <span className="text-[10px] text-zinc-500 font-mono block">ID: {client.id}</span>
+                      <span className="text-[10px] text-zinc-500 font-mono block">ID: {client.id.split('-')[0]}...</span>
                     </div>
                   </div>
                   <div className="text-right shrink-0">
@@ -263,7 +347,7 @@ export const ClientsModule: React.FC<ClientsModuleProps> = ({
                       <Phone className="w-3.5 h-3.5 text-zinc-500 shrink-0" />
                       <span className="truncate">{client.phone || 'N/A'}</span>
                       <span className="text-zinc-600 mx-1">•</span>
-                      <span className="truncate text-zinc-400">{client.nationality} ({client.country})</span>
+                      <span className="truncate text-zinc-400">{client.nationality || 'N/A'}</span>
                     </div>
                   </div>
 
@@ -357,7 +441,7 @@ export const ClientsModule: React.FC<ClientsModuleProps> = ({
                           </div>
                           <div>
                             <span className="font-bold text-white block">{client.fullName}</span>
-                            <span className="text-[10px] text-zinc-500 font-mono">ID: {client.id}</span>
+                            <span className="text-[10px] text-zinc-500 font-mono">ID: {client.id.split('-')[0]}...</span>
                           </div>
                         </div>
                       </td>
@@ -378,8 +462,8 @@ export const ClientsModule: React.FC<ClientsModuleProps> = ({
 
                       {/* Nationality */}
                       <td className="px-6 py-4">
-                        <span className="font-semibold text-zinc-200 block">{client.nationality}</span>
-                        <span className="text-zinc-500 text-xs">{client.country}</span>
+                        <span className="font-semibold text-zinc-200 block">{client.nationality || '-'}</span>
+                        <span className="text-zinc-500 text-xs">{client.country || '-'}</span>
                       </td>
 
                       {/* IDs (Pass & License) */}
@@ -482,7 +566,7 @@ export const ClientsModule: React.FC<ClientsModuleProps> = ({
                 <div><span className="text-zinc-400 w-24 inline-block">Email:</span> <span className="font-semibold text-[#F4F4F2]">{selectedClient.email}</span></div>
                 <div><span className="text-zinc-400 w-24 inline-block">{language === 'fr' ? 'Téléphone :' : 'Phone:'}</span> <span className="font-semibold text-[#F4F4F2]">{selectedClient.phone}</span></div>
                 <div><span className="text-zinc-400 w-24 inline-block">WhatsApp:</span> <span className="font-semibold text-[#F4F4F2]">{selectedClient.whatsapp}</span></div>
-                <div><span className="text-zinc-400 w-24 inline-block">{language === 'fr' ? 'Nationalité :' : 'Nationality:'}</span> <span className="font-semibold text-[#F4F4F2]">{selectedClient.nationality} ({selectedClient.country})</span></div>
+                <div><span className="text-zinc-400 w-24 inline-block">{language === 'fr' ? 'Nationalité :' : 'Nationality:'}</span> <span className="font-semibold text-[#F4F4F2]">{selectedClient.nationality || '-'} ({selectedClient.country || '-'})</span></div>
                 <div className="pt-2"><span className="text-zinc-400 block mb-1">{language === 'fr' ? 'Contact d’Urgence :' : 'Emergency Contact:'}</span> <span className="font-bold text-rose-400">{selectedClient.emergencyContact || (language === 'fr' ? 'Aucun renseigné' : 'None listed')}</span></div>
               </div>
 
@@ -490,11 +574,11 @@ export const ClientsModule: React.FC<ClientsModuleProps> = ({
                 <h4 className="font-bold text-sm text-[#D4A017] border-b border-[#333333] pb-2 flex items-center gap-2">
                   <Shield className="w-4 h-4" /> {language === 'fr' ? 'Identifiants Passeport & Permis' : 'Passport & License Credentials'}
                 </h4>
-                <div><span className="text-zinc-400 block mb-0.5">{language === 'fr' ? 'N° Passeport :' : 'Passport Number:'}</span> <span className="font-mono font-bold text-[#F4F4F2] bg-[#1A1A1A] px-2 py-1 rounded border border-[#333]">{selectedClient.passportNumber}</span></div>
-                <div><span className="text-zinc-400 inline-block w-32">{language === 'fr' ? 'Expiration Pass. :' : 'Passport Expiry:'}</span> <span className="font-semibold text-emerald-400">{selectedClient.passportExpiry}</span></div>
+                <div><span className="text-zinc-400 block mb-0.5">{language === 'fr' ? 'N° Passeport :' : 'Passport Number:'}</span> <span className="font-mono font-bold text-[#F4F4F2] bg-[#1A1A1A] px-2 py-1 rounded border border-[#333]">{selectedClient.passportNumber || '-'}</span></div>
+                <div><span className="text-zinc-400 inline-block w-32">{language === 'fr' ? 'Expiration Pass. :' : 'Passport Expiry:'}</span> <span className="font-semibold text-emerald-400">{selectedClient.passportExpiry || '-'}</span></div>
                 
-                <div className="pt-2"><span className="text-zinc-400 block mb-0.5">{language === 'fr' ? 'N° Permis :' : 'License Number:'}</span> <span className="font-mono font-bold text-amber-400 bg-amber-950/20 px-2 py-1 rounded border border-amber-900/30">{selectedClient.licenseNumber} (Cat: {selectedClient.licenseCategory})</span></div>
-                <div><span className="text-zinc-400 inline-block w-32">{language === 'fr' ? 'Expiration Permis :' : 'License Expiry:'}</span> <span className="font-semibold text-emerald-400">{selectedClient.licenseExpiry}</span></div>
+                <div className="pt-2"><span className="text-zinc-400 block mb-0.5">{language === 'fr' ? 'N° Permis :' : 'License Number:'}</span> <span className="font-mono font-bold text-amber-400 bg-amber-950/20 px-2 py-1 rounded border border-amber-900/30">{selectedClient.licenseNumber || '-'} (Cat: {selectedClient.licenseCategory || 'A'})</span></div>
+                <div><span className="text-zinc-400 inline-block w-32">{language === 'fr' ? 'Expiration Permis :' : 'License Expiry:'}</span> <span className="font-semibold text-emerald-400">{selectedClient.licenseExpiry || '-'}</span></div>
               </div>
             </div>
 

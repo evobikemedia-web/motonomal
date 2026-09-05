@@ -1,10 +1,9 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { 
   Calendar, Search, Plus, Filter, LayoutGrid, List, CheckCircle2, 
-  XCircle, Clock, AlertTriangle, FileText, User, Bike, DollarSign, Edit, Trash2, ShieldCheck, Key 
+  XCircle, Clock, AlertTriangle, FileText, User, Bike, DollarSign, Edit, Trash2, ShieldCheck, Key, RefreshCw 
 } from 'lucide-react';
 import { Reservation, Motorcycle, Client, ReservationStatus, PaymentStatus } from '../../types';
-import { dbStore } from '../../services/db';
 import { Modal } from '../common/Modal';
 import { Badge } from '../common/Badge';
 import { EmptyState } from '../common/EmptyState';
@@ -14,9 +13,10 @@ import {
   formatCurrency, calculateRentalDays, calculateRentalPrice, isMotorcycleAvailable 
 } from '../../utils/calculations';
 import { useLanguage } from '../../context/LanguageContext';
+import { supabase } from '../../services/supabase'; // <-- Import Supabase
 
 interface ReservationsModuleProps {
-  reservations: Reservation[];
+  reservations: Reservation[]; // Conservé pour la signature
   motorcycles: Motorcycle[];
   clients: Client[];
   currency: 'MAD' | 'EUR' | 'USD';
@@ -25,7 +25,6 @@ interface ReservationsModuleProps {
 }
 
 export const ReservationsModule: React.FC<ReservationsModuleProps> = ({
-  reservations,
   motorcycles,
   clients,
   currency,
@@ -42,6 +41,81 @@ export const ReservationsModule: React.FC<ReservationsModuleProps> = ({
   const [deleteResId, setDeleteResId] = useState<string | null>(null);
   const [doubleBookingError, setDoubleBookingError] = useState<string | null>(null);
 
+  // ----------------------------------------------------
+  // ÉTATS DE LA BASE DE DONNÉES EN DIRECT (Supabase)
+  // ----------------------------------------------------
+  const [liveReservations, setLiveReservations] = useState<Reservation[]>([]);
+  const [isLoadingDb, setIsLoadingDb] = useState(true);
+
+  const fetchLiveReservations = async () => {
+    try {
+      setIsLoadingDb(true);
+      const { data, error } = await supabase
+        .from('reservations')
+        .select('*')
+        .order('start_date', { ascending: false });
+
+      if (error) throw error;
+
+      // Mapping Supabase vers l'interface React
+      const mappedRes = (data || []).map((r: any) => {
+        const client = clients.find(c => c.id === r.client_id);
+        const bike = motorcycles.find(m => m.id === r.vehicle_id);
+
+        const totalPrice = Number(r.total_price) || 0;
+        const amountPaid = Number(r.amount_paid) || 0;
+        const remainingBalance = Math.max(0, totalPrice - amountPaid);
+        
+        let payStatus: PaymentStatus = 'Pending';
+        if (amountPaid >= totalPrice && totalPrice > 0) payStatus = 'Paid';
+        else if (amountPaid > 0) payStatus = 'Partial';
+
+        return {
+          id: r.id,
+          clientId: r.client_id,
+          clientName: client ? client.fullName : 'Client Supprimé/Inconnu',
+          clientEmail: client ? client.email : '',
+          clientPhone: client ? client.phone : '',
+          motorcycleId: r.vehicle_id,
+          motorcycleName: bike ? `${bike.brand} ${bike.model}` : 'Moto Supprimée/Inconnue',
+          regNumber: bike ? bike.registrationNumber : 'N/A',
+          startDate: r.start_date,
+          endDate: r.end_date,
+          rentalDays: calculateRentalDays(r.start_date, r.end_date),
+          totalPrice: totalPrice,
+          amountPaid: amountPaid,
+          remainingBalance: remainingBalance,
+          paymentStatus: payStatus,
+          status: r.status as ReservationStatus,
+          // Attributs par défaut pour conformité d'interface
+          basePrice: totalPrice,
+          extrasPrice: 0,
+          discountAmount: 0,
+          depositAmount: bike ? bike.depositAmount : 0,
+          pickupLocation: 'Agence',
+          dropoffLocation: 'Agence',
+          bookingSource: 'Direct',
+          responsibleEmployee: 'Système',
+          notes: '',
+          createdAt: r.created_at
+        } as Reservation;
+      });
+
+      setLiveReservations(mappedRes);
+    } catch (error) {
+      console.error("Erreur de synchronisation Supabase (Reservations):", error);
+    } finally {
+      setIsLoadingDb(false);
+    }
+  };
+
+  useEffect(() => {
+    // Si clients ou motos sont chargés depuis le parent, on re-mappe les résas
+    if (clients.length > 0 || motorcycles.length > 0) {
+      fetchLiveReservations();
+    }
+  }, [clients, motorcycles]);
+
   // Handover (Check-in / Check-out) Modal state
   const [handoverRes, setHandoverRes] = useState<{ res: Reservation; mode: 'checkout' | 'checkin' } | null>(null);
 
@@ -49,26 +123,17 @@ export const ReservationsModule: React.FC<ReservationsModuleProps> = ({
   const [formData, setFormData] = useState<Partial<Reservation>>({
     clientId: clients[0]?.id || '',
     motorcycleId: motorcycles[0]?.id || '',
-    startDate: '2026-08-15',
-    endDate: '2026-08-20',
-    pickupLocation: 'Marrakech Airport (RAK)',
-    dropoffLocation: 'Marrakech HQ',
-    basePrice: 5000,
-    extrasPrice: 400,
-    discountAmount: 0,
-    depositAmount: 10000,
-    amountPaid: 2000,
-    paymentStatus: 'Partial',
-    bookingSource: 'Direct',
-    responsibleEmployee: 'Tarik Ouhssain',
+    startDate: new Date().toISOString().split('T')[0],
+    endDate: new Date(Date.now() + 5 * 24 * 60 * 60 * 1000).toISOString().split('T')[0],
+    basePrice: 0,
+    amountPaid: 0,
     status: 'Confirmed',
-    notes: '',
   });
 
   const handleOpenAdd = () => {
     setDoubleBookingError(null);
-    const start = '2026-08-15';
-    const end = '2026-08-20';
+    const start = new Date().toISOString().split('T')[0];
+    const end = new Date(Date.now() + 5 * 24 * 60 * 60 * 1000).toISOString().split('T')[0];
     const days = calculateRentalDays(start, end);
     const defaultBike = motorcycles[0];
     const base = defaultBike ? calculateRentalPrice(defaultBike, days) : 5000;
@@ -78,23 +143,14 @@ export const ReservationsModule: React.FC<ReservationsModuleProps> = ({
       motorcycleId: defaultBike?.id || '',
       startDate: start,
       endDate: end,
-      pickupLocation: 'Marrakech HQ',
-      dropoffLocation: 'Marrakech HQ',
       basePrice: base,
-      extrasPrice: 300,
-      discountAmount: 0,
-      depositAmount: defaultBike?.depositAmount || 10000,
       amountPaid: Math.round(base * 0.3),
-      paymentStatus: 'Partial',
-      bookingSource: 'Website',
-      responsibleEmployee: 'Tarik Ouhssain',
       status: 'Confirmed',
-      notes: '',
     });
     setIsAddModalOpen(true);
   };
 
-  const handleSave = (e: React.FormEvent) => {
+  const handleSave = async (e: React.FormEvent) => {
     e.preventDefault();
     setDoubleBookingError(null);
 
@@ -103,109 +159,87 @@ export const ReservationsModule: React.FC<ReservationsModuleProps> = ({
 
     if (!client || !bike) return;
 
-    const startDate = formData.startDate || '2026-08-15';
-    const endDate = formData.endDate || '2026-08-20';
+    const startDate = formData.startDate || new Date().toISOString().split('T')[0];
+    const endDate = formData.endDate || new Date().toISOString().split('T')[0];
 
-    // DOUBLE BOOKING CHECK
+    // DOUBLE BOOKING CHECK (vérification contre les résas Cloud)
     const availCheck = isMotorcycleAvailable(
       bike.id,
       startDate,
       endDate,
-      reservations,
-      isEditModalOpen ? selectedRes?.id : undefined
+      liveReservations,
+      isEditModalOpen && selectedRes ? selectedRes.id : undefined
     );
 
     if (!availCheck.available && availCheck.conflictingReservation) {
       const conf = availCheck.conflictingReservation;
       setDoubleBookingError(
         language === 'fr'
-          ? `CONFLIT DÉTECTÉ : La moto ${bike.brand} ${bike.model} (${bike.registrationNumber}) est déjà réservée du ${conf.startDate} au ${conf.endDate} par ${conf.clientName} (ID de réservation : ${conf.id}). Double réservation empêchée !`
-          : `CONFLICT DETECTED: Motorcycle ${bike.brand} ${bike.model} (${bike.registrationNumber}) is already booked from ${conf.startDate} to ${conf.endDate} by ${conf.clientName} (Booking ID: ${conf.id}). Double booking prevented!`
+          ? `CONFLIT DÉTECTÉ : La moto ${bike.brand} ${bike.model} (${bike.registrationNumber}) est déjà réservée du ${conf.startDate} au ${conf.endDate} par ${conf.clientName}. Double réservation bloquée !`
+          : `CONFLICT DETECTED: Motorcycle ${bike.brand} ${bike.model} (${bike.registrationNumber}) is already booked from ${conf.startDate} to ${conf.endDate} by ${conf.clientName}. Double booking prevented!`
       );
       return;
     }
 
-    const days = calculateRentalDays(startDate, endDate);
-    const basePrice = formData.basePrice || calculateRentalPrice(bike, days);
-    const extras = formData.extrasPrice || 0;
-    const discount = formData.discountAmount || 0;
-    const totalPrice = Math.max(0, basePrice + extras - discount);
-    const amountPaid = formData.amountPaid || 0;
-    const remainingBalance = Math.max(0, totalPrice - amountPaid);
+    setIsLoadingDb(true);
+    try {
+      const days = calculateRentalDays(startDate, endDate);
+      const totalPrice = formData.basePrice || calculateRentalPrice(bike, days);
+      const amountPaid = formData.amountPaid || 0;
+      const status = formData.status || 'Confirmed';
 
-    let payStatus: PaymentStatus = 'Pending';
-    if (amountPaid >= totalPrice && totalPrice > 0) payStatus = 'Paid';
-    else if (amountPaid > 0) payStatus = 'Partial';
-
-    if (isEditModalOpen && selectedRes) {
-      dbStore.updateItem<Reservation>('reservations', selectedRes.id, {
-        ...formData,
-        clientName: client.fullName,
-        clientEmail: client.email,
-        clientPhone: client.phone,
-        motorcycleName: `${bike.brand} ${bike.model} (${bike.registrationNumber})`,
-        regNumber: bike.registrationNumber,
-        rentalDays: days,
-        totalPrice,
-        remainingBalance,
-        paymentStatus: payStatus,
-      });
-      setIsEditModalOpen(false);
-    } else {
-      const newRes: Reservation = {
-        id: `res-${Math.floor(100 + Math.random() * 900)}`,
-        clientId: client.id,
-        clientName: client.fullName,
-        clientEmail: client.email,
-        clientPhone: client.phone,
-        motorcycleId: bike.id,
-        motorcycleName: `${bike.brand} ${bike.model} (${bike.registrationNumber})`,
-        regNumber: bike.registrationNumber,
-        startDate,
-        endDate,
-        rentalDays: days,
-        pickupLocation: formData.pickupLocation || 'Marrakech HQ',
-        dropoffLocation: formData.dropoffLocation || 'Marrakech HQ',
-        basePrice,
-        extrasPrice: extras,
-        discountAmount: discount,
-        taxAmount: 0,
-        totalPrice,
-        depositAmount: formData.depositAmount || bike.depositAmount,
-        amountPaid,
-        remainingBalance,
-        paymentStatus: payStatus,
-        bookingSource: formData.bookingSource || 'Direct',
-        responsibleEmployee: formData.responsibleEmployee || 'Tarik Ouhssain',
-        status: (formData.status as ReservationStatus) || 'Confirmed',
-        notes: formData.notes || '',
-        createdAt: new Date().toISOString(),
+      const payload = {
+        client_id: client.id,
+        vehicle_id: bike.id,
+        start_date: startDate,
+        end_date: endDate,
+        total_price: totalPrice,
+        amount_paid: amountPaid,
+        status: status
       };
 
-      dbStore.addItem<Reservation>('reservations', newRes);
-
-      // AUTOMATIC FLEET STATUS UPDATE
-      if (newRes.status === 'Confirmed') {
-        dbStore.updateItem<Motorcycle>('motorcycles', bike.id, { currentStatus: 'Reserved' });
-      } else if (newRes.status === 'Active') {
-        dbStore.updateItem<Motorcycle>('motorcycles', bike.id, { currentStatus: 'Rented' });
+      if (isEditModalOpen && selectedRes) {
+        await supabase.from('reservations').update(payload).eq('id', selectedRes.id);
+      } else {
+        await supabase.from('reservations').insert([payload]);
       }
 
+      // MISE À JOUR AUTO DU STATUT DE LA MOTO
+      if (status === 'Active') {
+        await supabase.from('vehicles').update({ status: 'RENTED' }).eq('id', bike.id);
+      } else if (['Returned', 'Closed', 'Cancelled'].includes(status)) {
+        await supabase.from('vehicles').update({ status: 'AVAILABLE' }).eq('id', bike.id);
+      }
+
+      await fetchLiveReservations();
       setIsAddModalOpen(false);
-    }
-    onUpdate();
-  };
-
-  const handleDelete = () => {
-    if (deleteResId) {
-      dbStore.deleteItem<Reservation>('reservations', deleteResId);
-      setDeleteResId(null);
-      setSelectedRes(null);
+      setIsEditModalOpen(false);
       onUpdate();
+    } catch (error) {
+      console.error("Erreur lors de la sauvegarde :", error);
+    } finally {
+      setIsLoadingDb(false);
     }
   };
 
-  const filteredReservations = reservations.filter((r) => {
+  const handleDelete = async () => {
+    if (deleteResId) {
+      setIsLoadingDb(true);
+      try {
+        await supabase.from('reservations').delete().eq('id', deleteResId);
+        await fetchLiveReservations();
+        setDeleteResId(null);
+        setSelectedRes(null);
+        onUpdate();
+      } catch (error) {
+        console.error("Erreur lors de la suppression :", error);
+      } finally {
+        setIsLoadingDb(false);
+      }
+    }
+  };
+
+  const filteredReservations = liveReservations.filter((r) => {
     const matchesSearch = 
       r.clientName.toLowerCase().includes(search.toLowerCase()) ||
       r.motorcycleName.toLowerCase().includes(search.toLowerCase()) ||
@@ -215,15 +249,27 @@ export const ReservationsModule: React.FC<ReservationsModuleProps> = ({
     return matchesSearch && matchesStatus;
   });
 
+  if (isLoadingDb && liveReservations.length === 0) {
+    return (
+      <div className="flex flex-col items-center justify-center min-h-[60vh] text-[#D4A017] space-y-4">
+        <RefreshCw className="w-10 h-10 animate-spin" />
+        <p className="font-bold tracking-widest uppercase text-sm">Synchronisation des Réservations...</p>
+      </div>
+    );
+  }
+
   return (
     <div className="space-y-6 animate-fadeIn text-[#F4F4F2]">
       {/* Header */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
-          <h2 className="text-2xl font-black text-[#F4F4F2] flex items-center gap-2">
-            <Calendar className="w-6 h-6 text-[#D4A017]" /> 
-            {language === 'fr' ? 'Gestion des Réservations & Locations' : 'Reservation & Rental Management'}
-          </h2>
+          <div className="flex items-center gap-2.5">
+            <h2 className="text-2xl font-black text-[#F4F4F2] flex items-center gap-2">
+              <Calendar className="w-6 h-6 text-[#D4A017]" /> 
+              {language === 'fr' ? 'Gestion des Réservations & Locations' : 'Reservation & Rental Management'}
+            </h2>
+            {isLoadingDb && <RefreshCw className="w-4 h-4 text-zinc-500 animate-spin" />}
+          </div>
           <p className="text-xs text-zinc-400 mt-1">
             {language === 'fr'
               ? 'Validation automatique des disponibilités, suivi des contrats de location, prises en main check-in/check-out et prévention des doubles réservations.'
@@ -321,7 +367,7 @@ export const ReservationsModule: React.FC<ReservationsModuleProps> = ({
                       onClick={() => setSelectedRes(res)}
                     >
                       <td className="p-4">
-                        <span className="font-bold text-sm text-[#D4A017] block">{res.id}</span>
+                        <span className="font-bold text-sm text-[#D4A017] block">{res.id.split('-')[0]}...</span>
                         <div className="mt-1"><Badge status={res.status} /></div>
                       </td>
                       <td className="p-4 font-bold text-sm text-[#F4F4F2]">
@@ -399,7 +445,7 @@ export const ReservationsModule: React.FC<ReservationsModuleProps> = ({
         <div className="p-6 rounded-2xl bg-[#1C1C1C] border border-[#2D2D2D] shadow-xl space-y-4">
           <h3 className="font-bold text-lg text-[#F4F4F2] flex items-center gap-2">
             <Calendar className="w-5 h-5 text-[#D4A017]" /> 
-            {language === 'fr' ? 'Planning de la Flotte - Août 2026' : 'August 2026 Fleet Schedule'}
+            {language === 'fr' ? 'Planning de la Flotte' : 'Fleet Schedule'}
           </h3>
           <div className="grid grid-cols-7 gap-2 text-center text-xs font-bold text-zinc-400 border-b border-[#2D2D2D] pb-2">
             <div>{language === 'fr' ? 'Lun' : 'Mon'}</div>
@@ -414,7 +460,7 @@ export const ReservationsModule: React.FC<ReservationsModuleProps> = ({
             {Array.from({ length: 31 }, (_, i) => {
               const dayNum = i + 1;
               const dateStr = `2026-08-${dayNum < 10 ? '0' + dayNum : dayNum}`;
-              const dayBookings = reservations.filter((r) => r.startDate <= dateStr && r.endDate >= dateStr);
+              const dayBookings = liveReservations.filter((r) => r.startDate <= dateStr && r.endDate >= dateStr);
 
               return (
                 <div key={dayNum} className="min-h-24 p-2 rounded-xl bg-[#222222] border border-[#2D2D2D] space-y-1">
@@ -441,7 +487,7 @@ export const ReservationsModule: React.FC<ReservationsModuleProps> = ({
         <Modal
           isOpen={!!selectedRes}
           onClose={() => setSelectedRes(null)}
-          title={`${language === 'fr' ? 'Détails de la Réservation :' : 'Booking Details:'} ${selectedRes.id}`}
+          title={`${language === 'fr' ? 'Détails de la Réservation :' : 'Booking Details:'} ${selectedRes.id.split('-')[0]}...`}
           subtitle={`Status: ${selectedRes.status} | Source: ${selectedRes.bookingSource}`}
           maxWidth="2xl"
         >
@@ -528,8 +574,9 @@ export const ReservationsModule: React.FC<ReservationsModuleProps> = ({
                   onChange={(e) => setFormData({ ...formData, clientId: e.target.value })}
                   className="w-full p-2.5 rounded-xl bg-[#262626] border border-[#333333] text-[#F4F4F2] cursor-pointer"
                 >
+                  <option value="" disabled>-- Sélectionner --</option>
                   {clients.map((c) => (
-                    <option key={c.id} value={c.id}>{c.fullName} ({c.nationality})</option>
+                    <option key={c.id} value={c.id}>{c.fullName} ({c.nationality || 'N/A'})</option>
                   ))}
                 </select>
               </div>
@@ -544,8 +591,9 @@ export const ReservationsModule: React.FC<ReservationsModuleProps> = ({
                   onChange={(e) => setFormData({ ...formData, motorcycleId: e.target.value })}
                   className="w-full p-2.5 rounded-xl bg-[#262626] border border-[#333333] text-[#F4F4F2] cursor-pointer"
                 >
+                  <option value="" disabled>-- Sélectionner --</option>
                   {motorcycles.map((m) => (
-                    <option key={m.id} value={m.id}>{m.brand} {m.model} ({m.registrationNumber}) - {formatCurrency(m.dailyPrice, currency)}/day</option>
+                    <option key={m.id} value={m.id}>{m.brand} {m.model} ({m.registrationNumber}) - {formatCurrency(m.dailyPrice || 1400, currency)}/day</option>
                   ))}
                 </select>
               </div>
@@ -649,7 +697,10 @@ export const ReservationsModule: React.FC<ReservationsModuleProps> = ({
           onClose={() => setHandoverRes(null)}
           reservation={handoverRes.res}
           mode={handoverRes.mode}
-          onComplete={onUpdate}
+          onComplete={() => {
+            fetchLiveReservations();
+            onUpdate();
+          }}
         />
       )}
 

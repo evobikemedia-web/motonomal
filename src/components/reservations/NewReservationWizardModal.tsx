@@ -4,9 +4,9 @@ import {
 } from 'lucide-react';
 import { Client, Motorcycle, Reservation } from '../../types';
 import { Modal } from '../common/Modal';
-import { dbStore } from '../../services/db';
 import { useLanguage } from '../../context/LanguageContext';
 import { calculateRentalDays, calculateRentalPrice, isMotorcycleAvailable } from '../../utils/calculations';
+import { supabase } from '../../services/supabase';
 
 interface NewReservationWizardModalProps {
   isOpen: boolean;
@@ -50,7 +50,7 @@ export const NewReservationWizardModal: React.FC<NewReservationWizardModalProps>
   const [amountPaid, setAmountPaid] = useState<number>(1500);
   const [depositAmount, setDepositAmount] = useState<number>(15000);
 
-  const selectedBike = motorcycles.find((m) => m.id === selectedBikeId);
+  const selectedBike = motorcycles.find((m) => m.id === selectedBikeId) as any;
   const selectedClient = clients.find((c) => c.id === selectedClientId);
 
   const isBikeAvailable = selectedBikeId && startDate && endDate
@@ -61,37 +61,30 @@ export const NewReservationWizardModal: React.FC<NewReservationWizardModalProps>
   const dailyRate = selectedBike ? (selectedBike.dailyRate || selectedBike.dailyPrice || 500) : 500;
   const totalPrice = selectedBike ? calculateRentalPrice(selectedBike, rentalDays) : rentalDays * dailyRate;
 
-  const handleNextStep = () => {
+  const handleNextStep = async () => {
     if (step === 1 && isCreatingNewClient && newClientName) {
-      const newClient: Client = {
-        id: `cli_${Date.now()}`,
-        firstName: newClientName.split(' ')[0] || newClientName,
-        lastName: newClientName.split(' ').slice(1).join(' ') || '',
-        fullName: newClientName,
-        phone: newClientPhone || '+212 600-000000',
-        whatsapp: newClientPhone || '+212 600-000000',
-        email: '',
-        address: '',
-        country: 'France',
-        passportNumber: newClientPassport || 'PASS123456',
-        passportExpiry: '2030-01-01',
-        licenseNumber: 'DL998877',
-        licenseIssueDate: '2020-01-01',
-        licenseExpiry: '2030-01-01',
-        licenseCategory: 'A',
-        emergencyContact: '',
-        nationality: 'Morocco',
-        dateOfBirth: '1990-01-01',
-        bookingsCount: 0,
-        totalSpent: 0,
-        avgBookingValue: 0,
-        lifetimeValue: 0,
-        notes: 'Created via mobile wizard',
-        createdAt: new Date().toISOString(),
-        createdBy: 'Mobile Wizard',
-      };
-      dbStore.addItem<Client>('clients', newClient);
-      setSelectedClientId(newClient.id);
+      try {
+        const nameParts = newClientName.trim().split(' ');
+        const firstName = nameParts[0] || newClientName;
+        const lastName = nameParts.slice(1).join(' ') || 'N/A';
+
+        const { data, error } = await supabase.from('clients').insert([{
+          first_name: firstName,
+          last_name: lastName,
+          email: `${firstName.toLowerCase()}@client.com`,
+          phone: newClientPhone || '+212600000000',
+          nationality: 'Moroccan',
+          country_of_residence: 'Morocco',
+          passport_number: newClientPassport || 'PASS00000'
+        }]).select().single();
+
+        if (error) throw error;
+        if (data) {
+          setSelectedClientId(data.id);
+        }
+      } catch (err) {
+        console.error("Erreur création client wizard:", err);
+      }
     }
     setStep((prev) => Math.min(prev + 1, 6));
   };
@@ -100,45 +93,30 @@ export const NewReservationWizardModal: React.FC<NewReservationWizardModalProps>
     setStep((prev) => Math.max(prev - 1, 1));
   };
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
 
-    const finalClient = isCreatingNewClient
-      ? { fullName: newClientName, phone: newClientPhone }
-      : { fullName: selectedClient?.fullName || 'Client', phone: selectedClient?.phone || '' };
+    try {
+      const payload = {
+        client_id: selectedClientId,
+        vehicle_id: selectedBikeId,
+        start_date: startDate,
+        end_date: endDate,
+        total_price: totalPrice,
+        amount_paid: amountPaid,
+        status: 'Confirmed'
+      };
 
-    const newRes: Reservation = {
-      id: `RES-${Date.now().toString().slice(-4)}`,
-      clientId: selectedClientId,
-      clientName: finalClient.fullName,
-      clientEmail: selectedClient?.email || '',
-      clientPhone: finalClient.phone,
-      motorcycleId: selectedBikeId,
-      motorcycleName: selectedBike ? `${selectedBike.brand} ${selectedBike.model}` : 'Motorcycle',
-      regNumber: selectedBike?.registrationNumber || '12345-A-1',
-      startDate,
-      endDate,
-      rentalDays: rentalDays,
-      pickupLocation: 'Marrakech Hub',
-      dropoffLocation: 'Marrakech Hub',
-      basePrice: totalPrice,
-      extrasPrice: 0,
-      discountAmount: 0,
-      taxAmount: 0,
-      totalPrice: totalPrice,
-      depositAmount: depositAmount,
-      amountPaid: amountPaid,
-      remainingBalance: Math.max(0, totalPrice - amountPaid),
-      paymentStatus: paymentStatus as any,
-      bookingSource: 'Direct',
-      responsibleEmployee: 'Staff',
-      status: 'Confirmed',
-      createdAt: new Date().toISOString(),
-    };
+      const { error } = await supabase.from('reservations').insert([payload]);
+      if (error) throw error;
 
-    dbStore.addItem<Reservation>('reservations', newRes);
-    onComplete();
-    onClose();
+      await supabase.from('vehicles').update({ status: 'RESERVED' }).eq('id', selectedBikeId);
+
+      onComplete();
+      onClose();
+    } catch (err) {
+      console.error("Erreur enregistrement réservation wizard:", err);
+    }
   };
 
   return (
@@ -168,7 +146,7 @@ export const NewReservationWizardModal: React.FC<NewReservationWizardModalProps>
               <button
                 type="button"
                 onClick={() => setIsCreatingNewClient(!isCreatingNewClient)}
-                className="text-xs text-[#D4A017] hover:underline font-bold"
+                className="text-xs text-[#D4A017] hover:underline font-bold cursor-pointer"
               >
                 {isCreatingNewClient ? t('wizard.select_existing_client') : t('wizard.or_create_new')}
               </button>
@@ -182,7 +160,7 @@ export const NewReservationWizardModal: React.FC<NewReservationWizardModalProps>
                 <select
                   value={selectedClientId}
                   onChange={(e) => setSelectedClientId(e.target.value)}
-                  className="w-full p-3 rounded-xl bg-[#262626] border border-[#333333] text-[#F4F4F2] font-semibold text-sm"
+                  className="w-full p-3 rounded-xl bg-[#262626] border border-[#333333] text-[#F4F4F2] font-semibold text-sm cursor-pointer"
                 >
                   {clients.map((c) => (
                     <option key={c.id} value={c.id}>
@@ -245,29 +223,29 @@ export const NewReservationWizardModal: React.FC<NewReservationWizardModalProps>
             )}
 
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5 max-h-60 overflow-y-auto pr-1">
-              {motorcycles.map((bike) => {
-                const isSelected = bike.id === selectedBikeId;
+              {motorcycles.map((bikeItem: any) => {
+                const isSelected = bikeItem.id === selectedBikeId;
                 return (
                   <button
-                    key={bike.id}
+                    key={bikeItem.id}
                     type="button"
-                    onClick={() => setSelectedBikeId(bike.id)}
-                    className={`p-3 rounded-xl border text-left flex items-center gap-3 transition-all ${
+                    onClick={() => setSelectedBikeId(bikeItem.id)}
+                    className={`p-3 rounded-xl border text-left flex items-center gap-3 transition-all cursor-pointer ${
                       isSelected
                         ? 'bg-[#D4A017]/15 border-[#D4A017] text-white'
                         : 'bg-[#242424] border-[#2F2F2F] text-zinc-300 hover:bg-[#2A2A2A]'
                     }`}
                   >
                     <img
-                      src={bike.imageUrl || 'https://images.unsplash.com/photo-1558981806-ec527fa84c39?w=300&auto=format&fit=crop&q=80'}
-                      alt={bike.model}
+                      src={bikeItem.imageUrl || 'https://images.unsplash.com/photo-1558981806-ec527fa84c39?w=300&auto=format&fit=crop&q=80'}
+                      alt={bikeItem.model}
                       className="w-12 h-12 rounded-lg object-cover shrink-0 border border-[#3D3D3D]"
                     />
                     <div className="flex flex-col min-w-0">
-                      <span className="font-bold text-xs truncate">{bike.brand} {bike.model}</span>
-                      <span className="text-[10px] text-zinc-400">{bike.category} • {bike.regNumber}</span>
+                      <span className="font-bold text-xs truncate">{bikeItem.brand} {bikeItem.model}</span>
+                      <span className="text-[10px] text-zinc-400">{bikeItem.category} • {bikeItem.registrationNumber || bikeItem.regNumber || 'N/A'}</span>
                       <span className="text-xs font-extrabold text-[#D4A017] mt-0.5">
-                        {formatCurrencyVal(bike.dailyRate, currency)} / jour
+                        {formatCurrencyVal(bikeItem.dailyRate || bikeItem.dailyPrice || 1400, currency)} / jour
                       </span>
                     </div>
                   </button>
@@ -361,7 +339,7 @@ export const NewReservationWizardModal: React.FC<NewReservationWizardModalProps>
                 <select
                   value={paymentStatus}
                   onChange={(e) => setPaymentStatus(e.target.value as any)}
-                  className="w-full p-2.5 rounded-xl bg-[#262626] border border-[#333333] text-[#F4F4F2]"
+                  className="w-full p-2.5 rounded-xl bg-[#262626] border border-[#333333] text-[#F4F4F2] cursor-pointer"
                 >
                   <option value="Paid">Payé (Paid)</option>
                   <option value="Partially Paid">Acompte (Partially Paid)</option>
@@ -374,7 +352,7 @@ export const NewReservationWizardModal: React.FC<NewReservationWizardModalProps>
                 <select
                   value={paymentMethod}
                   onChange={(e) => setPaymentMethod(e.target.value as any)}
-                  className="w-full p-2.5 rounded-xl bg-[#262626] border border-[#333333] text-[#F4F4F2]"
+                  className="w-full p-2.5 rounded-xl bg-[#262626] border border-[#333333] text-[#F4F4F2] cursor-pointer"
                 >
                   <option value="Card">Carte Bancaire</option>
                   <option value="Cash">Espèces (MAD / EUR)</option>
@@ -433,7 +411,7 @@ export const NewReservationWizardModal: React.FC<NewReservationWizardModalProps>
             <button
               type="button"
               onClick={handlePrevStep}
-              className="px-4 py-2 rounded-xl font-bold bg-zinc-800 text-zinc-300 hover:bg-zinc-700 flex items-center gap-1"
+              className="px-4 py-2 rounded-xl font-bold bg-zinc-800 text-zinc-300 hover:bg-zinc-700 flex items-center gap-1 cursor-pointer"
             >
               <ChevronLeft className="w-4 h-4" /> {t('common.back')}
             </button>
@@ -441,7 +419,7 @@ export const NewReservationWizardModal: React.FC<NewReservationWizardModalProps>
             <button
               type="button"
               onClick={onClose}
-              className="px-4 py-2 rounded-xl font-bold bg-zinc-800 text-zinc-300 hover:bg-zinc-700"
+              className="px-4 py-2 rounded-xl font-bold bg-zinc-800 text-zinc-300 hover:bg-zinc-700 cursor-pointer"
             >
               {t('common.cancel')}
             </button>
@@ -451,14 +429,14 @@ export const NewReservationWizardModal: React.FC<NewReservationWizardModalProps>
             <button
               type="button"
               onClick={handleNextStep}
-              className="px-5 py-2 rounded-xl font-bold bg-[#D4A017] text-[#1C1C1C] flex items-center gap-1 hover:bg-[#b88a10]"
+              className="px-5 py-2 rounded-xl font-bold bg-[#D4A017] text-[#1C1C1C] flex items-center gap-1 hover:bg-[#b88a10] cursor-pointer"
             >
               {t('common.next')} <ChevronRight className="w-4 h-4" />
             </button>
           ) : (
             <button
               type="submit"
-              className="px-6 py-2.5 rounded-xl font-black bg-[#D4A017] text-[#1C1C1C] hover:bg-[#b88a10] shadow-lg shadow-[#D4A017]/15"
+              className="px-6 py-2.5 rounded-xl font-black bg-[#D4A017] text-[#1C1C1C] hover:bg-[#b88a10] shadow-lg shadow-[#D4A017]/15 cursor-pointer"
             >
               {t('wizard.confirm_booking')}
             </button>

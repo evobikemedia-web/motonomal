@@ -1,16 +1,16 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { 
   Bike, Search, Plus, Filter, LayoutGrid, List, Wrench, Shield, 
-  TrendingUp, Calendar, AlertTriangle, Edit, Trash2, DollarSign, Activity, Eye 
+  TrendingUp, Calendar, AlertTriangle, Edit, Trash2, DollarSign, Activity, Eye, RefreshCw, Image as ImageIcon, Upload
 } from 'lucide-react';
 import { Motorcycle, MotorcycleStatus, Reservation, MaintenanceRecord } from '../../types';
-import { dbStore } from '../../services/db';
 import { Modal } from '../common/Modal';
 import { Badge } from '../common/Badge';
 import { EmptyState } from '../common/EmptyState';
 import { ConfirmDialog } from '../common/ConfirmDialog';
 import { formatCurrency, calculateDepreciation } from '../../utils/calculations';
 import { useLanguage } from '../../context/LanguageContext';
+import { supabase } from '../../services/supabase';
 
 interface FleetModuleProps {
   motorcycles: Motorcycle[];
@@ -22,7 +22,6 @@ interface FleetModuleProps {
 }
 
 export const FleetModule: React.FC<FleetModuleProps> = ({
-  motorcycles,
   reservations,
   maintenance,
   currency,
@@ -30,6 +29,83 @@ export const FleetModule: React.FC<FleetModuleProps> = ({
   initialOpenAddModal = false,
 }) => {
   const { t, formatCurrencyVal, language } = useLanguage();
+  
+  const [liveMotorcycles, setLiveMotorcycles] = useState<Motorcycle[]>([]);
+  const [isLoadingDb, setIsLoadingDb] = useState(true);
+
+  const fetchLiveFleet = async () => {
+    try {
+      setIsLoadingDb(true);
+      const { data, error } = await supabase
+        .from('vehicles')
+        .select('*')
+        .order('created_at', { ascending: false });
+
+      if (error) throw error;
+
+      const mappedBikes = (data || []).map((v: any) => {
+        const bikeReservations = reservations.filter(r => r.motorcycleId === v.id);
+        const totalRevenue = bikeReservations.reduce((sum, r) => sum + r.totalPrice, 0);
+
+        const bikeMaintenance = maintenance.filter(m => m.motorcycleId === v.id);
+        const totalMaintenanceCost = bikeMaintenance.reduce((sum, m: any) => sum + (m.cost || m.amount || 0), 0);
+
+        let status = v.status;
+        if (status === 'AVAILABLE') status = 'Available';
+        if (status === 'RENTED') status = 'Rented';
+        if (status === 'MAINTENANCE') status = 'Maintenance';
+        if (status === 'RESERVED') status = 'Reserved';
+        if (status === 'SOLD') status = 'Sold';
+
+        return {
+          id: v.id,
+          brand: v.brand || 'N/A',
+          model: v.model || 'N/A',
+          version: v.version || '',
+          year: new Date(v.purchase_date || Date.now()).getFullYear(),
+          registrationNumber: v.registration_number || '',
+          vin: v.vin || '',
+          color: 'Standard',
+          category: v.category || 'Adventure',
+          engineSize: 1000,
+          purchaseDate: v.purchase_date || new Date().toISOString().split('T')[0],
+          purchasePrice: Number(v.purchase_price) || 0,
+          residualValue: (Number(v.purchase_price) || 0) * 0.2,
+          usefulLifeYears: 5,
+          depreciationMethod: 'Straight-line',
+          currentMileage: Number(v.mileage) || 0,
+          currentStatus: status || 'Available',
+          currentLocation: 'Marrakech HQ',
+          supplier: 'Concessionnaire',
+          insuranceCompany: 'AXA Assurance',
+          insurancePolicyNumber: 'POL-XXX',
+          insuranceExpiry: '2026-12-31',
+          techInspectionExpiry: '2026-12-31',
+          dailyPrice: Number(v.daily_rate) || 0,
+          weeklyPrice: (Number(v.daily_rate) || 0) * 6,
+          monthlyPrice: (Number(v.daily_rate) || 0) * 20,
+          depositAmount: 10000,
+          photos: [v.image_url || 'https://images.unsplash.com/photo-1568772585407-9361f9bf3a87?w=800&auto=format&fit=crop&q=80'],
+          totalRevenue,
+          totalMaintenanceCost,
+          currentBookValue: 0,
+          estimatedMarketValue: (Number(v.purchase_price) || 0) * 0.8,
+          createdAt: v.created_at || new Date().toISOString(),
+        } as Motorcycle;
+      });
+
+      setLiveMotorcycles(mappedBikes);
+    } catch (error) {
+      console.error("Erreur de synchronisation Supabase (Flotte):", error);
+    } finally {
+      setIsLoadingDb(false);
+    }
+  };
+
+  useEffect(() => {
+    fetchLiveFleet();
+  }, [reservations, maintenance]);
+
   const [viewMode, setViewMode] = useState<'board' | 'list'>('board');
   const [search, setSearch] = useState('');
   const [statusFilter, setStatusFilter] = useState<string>('ALL');
@@ -38,136 +114,134 @@ export const FleetModule: React.FC<FleetModuleProps> = ({
   const [isEditModalOpen, setIsEditModalOpen] = useState(false);
   const [deleteBikeId, setDeleteBikeId] = useState<string | null>(null);
 
-  // Form State
-  const [formData, setFormData] = useState<Partial<Motorcycle>>({
+  // État pour le fichier image uploadé
+  const [selectedImageFile, setSelectedImageFile] = useState<File | null>(null);
+  const [isUploading, setIsUploading] = useState(false);
+
+  const [formData, setFormData] = useState<Partial<Motorcycle> & { imageUrl?: string }>({
     brand: 'BMW',
     model: 'R 1250 GS Adventure',
     version: 'Triple Black',
-    year: 2024,
     registrationNumber: '',
     vin: '',
-    color: 'Black',
     category: 'Adventure',
-    engineSize: 1254,
-    purchaseDate: '2024-01-01',
+    purchaseDate: new Date().toISOString().split('T')[0],
     purchasePrice: 200000,
-    residualValue: 100000,
-    usefulLifeYears: 5,
-    depreciationMethod: 'Straight-line',
-    currentMileage: 10000,
+    dailyPrice: 1400,
     currentStatus: 'Available',
-    currentLocation: 'Marrakech HQ',
-    supplier: 'SMEIA BMW Morocco',
-    insuranceCompany: 'AXA Assurance',
-    insurancePolicyNumber: '',
-    insuranceExpiry: '2026-12-31',
-    techInspectionExpiry: '2026-11-30',
-    dailyPrice: 1200,
-    weeklyPrice: 7200,
-    monthlyPrice: 24000,
-    depositAmount: 15000,
-    photos: ['https://images.unsplash.com/photo-1568772585407-9361f9bf3a87?w=800&auto=format&fit=crop&q=80'],
+    currentMileage: 0,
+    imageUrl: '',
   });
 
   const handleOpenAdd = () => {
+    setSelectedImageFile(null); // Réinitialiser le fichier
     setFormData({
       brand: 'Yamaha',
       model: 'Ténéré 700',
       version: 'Rally',
-      year: 2024,
       registrationNumber: '',
       vin: '',
-      color: 'Blue',
       category: 'Adventure',
-      engineSize: 689,
       purchaseDate: new Date().toISOString().split('T')[0],
       purchasePrice: 130000,
-      residualValue: 65000,
-      usefulLifeYears: 5,
-      depreciationMethod: 'Straight-line',
-      currentMileage: 5000,
-      currentStatus: 'Available',
-      currentLocation: 'Marrakech HQ',
-      supplier: 'Yamaha Morocco',
-      insuranceCompany: 'AXA Assurance',
-      insurancePolicyNumber: '',
-      insuranceExpiry: '2027-01-01',
-      techInspectionExpiry: '2026-12-31',
       dailyPrice: 950,
-      weeklyPrice: 5700,
-      monthlyPrice: 19000,
-      depositAmount: 10000,
-      photos: ['https://images.unsplash.com/photo-1558981806-ec527fa84c39?w=800&auto=format&fit=crop&q=80'],
+      currentStatus: 'Available',
+      currentMileage: 0,
+      imageUrl: '',
     });
     setIsAddModalOpen(true);
   };
 
-  const handleSave = (e: React.FormEvent) => {
+  const handleSave = async (e: React.FormEvent) => {
     e.preventDefault();
+    setIsUploading(true);
 
-    if (isEditModalOpen && selectedBike) {
-      dbStore.updateItem<Motorcycle>('motorcycles', selectedBike.id, formData);
-      setIsEditModalOpen(false);
-    } else {
-      const dep = calculateDepreciation(
-        Number(formData.purchasePrice) || 150000,
-        Number(formData.residualValue) || 75000,
-        Number(formData.usefulLifeYears) || 5,
-        formData.purchaseDate || '2024-01-01'
-      );
+    try {
+      let finalImageUrl = formData.imageUrl;
 
-      const newBike: Motorcycle = {
-        id: `moto-${Date.now()}`,
-        brand: formData.brand || 'BMW',
-        model: formData.model || 'GS',
-        version: formData.version || '',
-        year: Number(formData.year) || 2024,
-        registrationNumber: formData.registrationNumber || `${Math.floor(10000 + Math.random() * 90000)}-A-26`,
-        vin: formData.vin || `VIN${Date.now()}`,
-        color: formData.color || 'Black',
-        category: formData.category || 'Adventure',
-        engineSize: Number(formData.engineSize) || 1200,
-        purchaseDate: formData.purchaseDate || '2024-01-01',
-        purchasePrice: Number(formData.purchasePrice) || 150000,
-        residualValue: Number(formData.residualValue) || 75000,
-        usefulLifeYears: Number(formData.usefulLifeYears) || 5,
-        depreciationMethod: 'Straight-line',
-        currentMileage: Number(formData.currentMileage) || 0,
-        currentStatus: (formData.currentStatus as MotorcycleStatus) || 'Available',
-        currentLocation: formData.currentLocation || 'Marrakech HQ',
-        supplier: formData.supplier || 'Morocco Dealer',
-        insuranceCompany: formData.insuranceCompany || 'AXA',
-        insurancePolicyNumber: formData.insurancePolicyNumber || 'POL-99128',
-        insuranceExpiry: formData.insuranceExpiry || '2026-12-31',
-        techInspectionExpiry: formData.techInspectionExpiry || '2026-11-30',
-        dailyPrice: Number(formData.dailyPrice) || 1000,
-        weeklyPrice: Number(formData.weeklyPrice) || 6000,
-        monthlyPrice: Number(formData.monthlyPrice) || 20000,
-        depositAmount: Number(formData.depositAmount) || 10000,
-        photos: formData.photos || ['https://images.unsplash.com/photo-1568772585407-9361f9bf3a87?w=800&auto=format&fit=crop&q=80'],
-        totalRevenue: 0,
-        totalMaintenanceCost: 0,
-        currentBookValue: dep.currentBookValue,
-        estimatedMarketValue: Number(formData.purchasePrice) * 0.9,
-        createdAt: new Date().toISOString(),
+      // 1. Gérer l'upload de l'image si un fichier a été sélectionné
+      if (selectedImageFile) {
+        const fileExt = selectedImageFile.name.split('.').pop();
+        const fileName = `${Date.now()}_${Math.random().toString(36).substring(2)}.${fileExt}`;
+        const filePath = `${fileName}`;
+
+        // Upload vers le bucket Supabase 'vehicles'
+        const { error: uploadError } = await supabase.storage
+          .from('vehicles')
+          .upload(filePath, selectedImageFile);
+
+        if (uploadError) {
+          console.error("Erreur lors de l'upload de l'image:", uploadError);
+          alert("Erreur lors du chargement de l'image.");
+        } else {
+          // Récupération de l'URL publique générée par Supabase
+          const { data: publicUrlData } = supabase.storage
+            .from('vehicles')
+            .getPublicUrl(filePath);
+          
+          finalImageUrl = publicUrlData.publicUrl;
+        }
+      }
+
+      // 2. Sauvegarde des données dans la base
+      const statusDB = formData.currentStatus === 'Available' ? 'AVAILABLE' :
+                       formData.currentStatus === 'Rented' ? 'RENTED' :
+                       formData.currentStatus === 'Maintenance' ? 'MAINTENANCE' :
+                       formData.currentStatus === 'Reserved' ? 'RESERVED' :
+                       formData.currentStatus === 'Sold' ? 'SOLD' : 'AVAILABLE';
+
+      const payload = {
+        brand: formData.brand,
+        model: formData.model,
+        version: formData.version,
+        registration_number: formData.registrationNumber,
+        vin: formData.vin,
+        category: formData.category,
+        daily_rate: formData.dailyPrice,
+        purchase_price: formData.purchasePrice,
+        status: statusDB,
+        mileage: formData.currentMileage || 0,
+        purchase_date: formData.purchaseDate || new Date().toISOString().split('T')[0],
+        image_url: finalImageUrl || null,
       };
-      dbStore.addItem<Motorcycle>('motorcycles', newBike);
+
+      if (isEditModalOpen && selectedBike) {
+        await supabase.from('vehicles').update(payload).eq('id', selectedBike.id);
+      } else {
+        await supabase.from('vehicles').insert([payload]);
+      }
+
+      await fetchLiveFleet();
       setIsAddModalOpen(false);
-    }
-    onUpdate();
-  };
-
-  const handleDelete = () => {
-    if (deleteBikeId) {
-      dbStore.deleteItem<Motorcycle>('motorcycles', deleteBikeId);
-      setDeleteBikeId(null);
+      setIsEditModalOpen(false);
       setSelectedBike(null);
+      setSelectedImageFile(null);
       onUpdate();
+    } catch (error) {
+      console.error("Erreur lors de la sauvegarde du véhicule :", error);
+    } finally {
+      setIsUploading(false);
     }
   };
 
-  // Filter bikes
-  const filteredBikes = motorcycles.filter((m) => {
+  const handleDelete = async () => {
+    if (deleteBikeId) {
+      setIsLoadingDb(true);
+      try {
+        await supabase.from('vehicles').delete().eq('id', deleteBikeId);
+        await fetchLiveFleet();
+        setDeleteBikeId(null);
+        setSelectedBike(null);
+        onUpdate();
+      } catch (error) {
+        console.error("Erreur lors de la suppression du véhicule :", error);
+      } finally {
+        setIsLoadingDb(false);
+      }
+    }
+  };
+
+  const filteredBikes = liveMotorcycles.filter((m) => {
     const matchesSearch = 
       `${m.brand} ${m.model} ${m.registrationNumber} ${m.vin} ${m.category}`
         .toLowerCase()
@@ -176,18 +250,19 @@ export const FleetModule: React.FC<FleetModuleProps> = ({
     return matchesSearch && matchesStatus;
   });
 
-  // Dedicated Fleet Metrics
-  const totalFleetInvestment = motorcycles.reduce((acc, m) => acc + m.purchasePrice, 0);
-  const totalFleetRevenue = motorcycles.reduce((acc, m) => acc + m.totalRevenue, 0);
-  const totalFleetMaintenance = motorcycles.reduce((acc, m) => acc + m.totalMaintenanceCost, 0);
+  const totalFleetInvestment = liveMotorcycles.reduce((acc, m) => acc + m.purchasePrice, 0);
+  const totalFleetRevenue = liveMotorcycles.reduce((acc, m) => acc + m.totalRevenue, 0);
+  const totalFleetMaintenance = liveMotorcycles.reduce((acc, m) => acc + m.totalMaintenanceCost, 0);
   const netFleetProfit = totalFleetRevenue - totalFleetMaintenance;
 
-  const getFleetStatusClass = (status: MotorcycleStatus) => {
-    if (status === 'Available') return 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/20';
-    if (status === 'Maintenance') return 'bg-rose-500/10 text-rose-400 border border-rose-500/20';
-    if (status === 'Rented' || status === 'Reserved') return 'bg-[#D4A017]/10 text-[#D4A017] border border-[#D4A017]/20';
-    return 'bg-zinc-500/10 text-zinc-400 border border-zinc-500/20';
-  };
+  if (isLoadingDb && liveMotorcycles.length === 0) {
+    return (
+      <div className="flex flex-col items-center justify-center min-h-[60vh] text-[#D4A017] space-y-4">
+        <RefreshCw className="w-10 h-10 animate-spin" />
+        <p className="font-bold tracking-widest uppercase text-sm">Synchronisation de la Flotte...</p>
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-6 animate-fadeIn text-[#F4F4F2]">
@@ -222,10 +297,13 @@ export const FleetModule: React.FC<FleetModuleProps> = ({
       {/* Title & Controls */}
       <div className="flex flex-col md:flex-row md:items-end justify-between gap-4">
         <div>
-          <h2 className="text-2xl font-black text-white flex items-center gap-2.5 tracking-wide">
-            <Bike className="w-6 h-6 text-[#D4A017]" /> 
-            {language === 'fr' ? 'Gestion de la Flotte' : 'Motorcycle Fleet Management'}
-          </h2>
+          <div className="flex items-center gap-2.5">
+            <h2 className="text-2xl font-black text-white flex items-center gap-2.5 tracking-wide">
+              <Bike className="w-6 h-6 text-[#D4A017]" /> 
+              {language === 'fr' ? 'Gestion de la Flotte' : 'Motorcycle Fleet Management'}
+            </h2>
+            {isLoadingDb && <RefreshCw className="w-4 h-4 text-zinc-500 animate-spin" />}
+          </div>
           <p className="text-sm text-zinc-400 mt-1.5 font-medium">
             {language === 'fr'
               ? 'Supervisez l’état en temps réel, le kilométrage et la rentabilité de chaque véhicule.'
@@ -261,7 +339,7 @@ export const FleetModule: React.FC<FleetModuleProps> = ({
         </div>
       </div>
 
-      {/* Search & Status Filter (Sleek Design) */}
+      {/* Search & Status Filter */}
       <div className="flex flex-col sm:flex-row items-center gap-3 p-2 rounded-2xl bg-[#181818] border border-[#2D2D2D] shadow-sm">
         <div className="relative flex-1 w-full flex items-center px-3">
           <Search className="w-4 h-4 text-zinc-500 shrink-0" />
@@ -320,7 +398,6 @@ export const FleetModule: React.FC<FleetModuleProps> = ({
                       alt={`${bike.brand} ${bike.model}`}
                       className="w-full h-full object-cover opacity-90 group-hover:opacity-100 group-hover:scale-105 transition-all duration-500"
                     />
-                    {/* Gradient Overlay for text readability */}
                     <div className="absolute inset-0 bg-gradient-to-t from-[#181818] via-transparent to-transparent opacity-80"></div>
                     
                     <div className="absolute top-3 left-3">
@@ -372,7 +449,7 @@ export const FleetModule: React.FC<FleetModuleProps> = ({
                     </div>
                   </div>
 
-                  {/* Hover Actions Overlay (Desktop) / Always visible footer (Mobile) */}
+                  {/* Hover Actions Overlay */}
                   <div className="px-5 py-3 bg-[#121212] flex items-center justify-between text-xs border-t border-[#2A2A2A]">
                      <span className="text-zinc-500 font-medium group-hover:text-white transition-colors">
                       {language === 'fr' ? 'Inspecter la moto' : 'Inspect bike'} →
@@ -381,7 +458,12 @@ export const FleetModule: React.FC<FleetModuleProps> = ({
                       <button
                         onClick={() => {
                           setSelectedBike(bike);
-                          setFormData(bike);
+                          setSelectedImageFile(null); // reset file input
+                          setFormData({
+                            ...bike,
+                            imageUrl: bike.photos?.[0] || '',
+                            purchaseDate: bike.purchaseDate || new Date().toISOString().split('T')[0]
+                          });
                           setIsEditModalOpen(true);
                         }}
                         className="p-2 rounded-lg bg-[#262626] hover:bg-[#333] text-zinc-300 hover:text-white transition-colors cursor-pointer"
@@ -402,7 +484,7 @@ export const FleetModule: React.FC<FleetModuleProps> = ({
           </div>
         )
       ) : (
-        /* List View (Premium Table Design) */
+        /* List View */
         <div className="rounded-2xl border border-[#2D2D2D] bg-[#181818] overflow-hidden shadow-2xl">
           <div className="overflow-x-auto">
             <table className="w-full text-left text-sm">
@@ -452,7 +534,12 @@ export const FleetModule: React.FC<FleetModuleProps> = ({
                           <button
                             onClick={() => {
                               setSelectedBike(bike);
-                              setFormData(bike);
+                              setSelectedImageFile(null); // reset file input
+                              setFormData({
+                                ...bike,
+                                imageUrl: bike.photos?.[0] || '',
+                                purchaseDate: bike.purchaseDate || new Date().toISOString().split('T')[0]
+                              });
                               setIsEditModalOpen(true);
                             }}
                             className="p-2 rounded-lg text-zinc-400 hover:text-white hover:bg-[#2A2A2A] transition-colors cursor-pointer"
@@ -539,7 +626,7 @@ export const FleetModule: React.FC<FleetModuleProps> = ({
         </Modal>
       )}
 
-      {/* Add / Edit Motorcycle Modal */}
+      {/* Add / Edit Motorcycle Modal avec fonctionnalité Upload */}
       {(isAddModalOpen || isEditModalOpen) && (
         <Modal
           isOpen={isAddModalOpen || isEditModalOpen}
@@ -659,22 +746,59 @@ export const FleetModule: React.FC<FleetModuleProps> = ({
               </div>
             </div>
 
+            {/* Nouveau champ pour l'upload d'image */}
+            <div className="border-t border-[#2D2D2D] pt-4 mt-2">
+              <label className="font-bold text-zinc-300 block mb-1.5 flex items-center gap-1.5">
+                <ImageIcon className="w-4 h-4 text-[#D4A017]" /> {language === 'fr' ? 'Photo de la Moto' : 'Motorcycle Photo'}
+              </label>
+              <div className="flex flex-col sm:flex-row items-center gap-4">
+                <input
+                  type="file"
+                  accept="image/*"
+                  onChange={(e) => {
+                    if (e.target.files && e.target.files.length > 0) {
+                      setSelectedImageFile(e.target.files[0]);
+                    }
+                  }}
+                  className="w-full p-2 rounded-xl bg-[#1A1A1A] border border-[#333] text-white focus:border-[#D4A017] outline-none file:mr-4 file:py-2 file:px-4 file:rounded-xl file:border-0 file:text-xs file:font-bold file:bg-[#D4A017] file:text-[#1C1C1C] hover:file:bg-[#b88a10] cursor-pointer"
+                />
+                {(formData.imageUrl || selectedImageFile) && (
+                  <div className="shrink-0">
+                    <img 
+                      src={selectedImageFile ? URL.createObjectURL(selectedImageFile) : formData.imageUrl} 
+                      alt="Preview" 
+                      className="w-16 h-12 object-cover rounded-md border border-[#333]"
+                    />
+                  </div>
+                )}
+              </div>
+            </div>
+
             <div className="flex justify-end gap-3 pt-6 border-t border-[#2D2D2D] mt-4">
               <button
                 type="button"
                 onClick={() => {
                   setIsAddModalOpen(false);
                   setIsEditModalOpen(false);
+                  setSelectedImageFile(null);
                 }}
                 className="px-5 py-2.5 rounded-xl font-bold bg-[#1A1A1A] border border-[#333] text-zinc-300 hover:text-white hover:border-zinc-500 transition-all cursor-pointer"
+                disabled={isUploading}
               >
                 {language === 'fr' ? 'Annuler' : 'Cancel'}
               </button>
               <button
                 type="submit"
-                className="px-5 py-2.5 rounded-xl font-bold bg-[#D4A017] text-[#1C1C1C] hover:bg-[#b88a10] hover:scale-[1.02] transition-all shadow-lg shadow-[#D4A017]/20 cursor-pointer"
+                disabled={isUploading}
+                className={`px-5 py-2.5 rounded-xl font-bold transition-all shadow-lg flex items-center gap-2 ${
+                  isUploading ? 'bg-zinc-600 text-zinc-300 cursor-not-allowed' : 'bg-[#D4A017] text-[#1C1C1C] hover:bg-[#b88a10] hover:scale-[1.02] shadow-[#D4A017]/20 cursor-pointer'
+                }`}
               >
-                {language === 'fr' ? 'Enregistrer le Véhicule' : 'Save Motorcycle'}
+                {isUploading ? (
+                  <><RefreshCw className="w-4 h-4 animate-spin" /> {language === 'fr' ? 'Upload en cours...' : 'Uploading...'}</>
+                ) : (
+                  <>{language === 'fr' ? 'Enregistrer le Véhicule' : 'Save Motorcycle'}</>
+                )}
               </button>
             </div>
           </form>
