@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
-import { Mail, Lock, ArrowRight, Bike, ShieldCheck } from 'lucide-react';
+import { Mail, Lock, ArrowRight, Bike, ShieldCheck, AlertCircle } from 'lucide-react'; // <-- Ajout de AlertCircle
 import { useLanguage } from '../../context/LanguageContext';
+import { supabase } from '../../services/supabase';
 
 interface LoginProps {
   onLoginSuccess: (role: string) => void;
@@ -12,30 +13,50 @@ export const Login: React.FC<LoginProps> = ({ onLoginSuccess, onNavigateRegister
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [isLoading, setIsLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null); // <-- Nouvel état pour l'erreur
 
-  const handleLogin = (e: React.FormEvent) => {
+  const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
     setIsLoading(true);
+    setError(null); // On réinitialise l'erreur à chaque nouvelle tentative
     
-    // Détection du rôle en fonction de l'email saisi
-    setTimeout(() => {
-      setIsLoading(false);
-      let assignedRole = 'STAFF'; // Rôle par défaut
-      const lowerEmail = email.toLowerCase();
-      
-      if (lowerEmail.includes('admin')) assignedRole = 'ADMIN';
-      else if (lowerEmail.includes('manager')) assignedRole = 'MANAGER';
-      else if (lowerEmail.includes('account')) assignedRole = 'ACCOUNTING';
-      else if (lowerEmail.includes('staff')) assignedRole = 'STAFF';
+    try {
+      // 1. Authentification via Supabase Cloud
+      const { data: authData, error: authError } = await supabase.auth.signInWithPassword({
+        email,
+        password,
+      });
 
-      onLoginSuccess(assignedRole);
-    }, 1200);
+      if (authError) {
+        // Au lieu d'un alert(), on met à jour le design d'erreur
+        setError(language === 'fr' ? 'Identifiants incorrects. Veuillez vérifier votre email et mot de passe.' : 'Invalid credentials. Please check your email and password.');
+        setIsLoading(false);
+        return;
+      }
+
+      // 2. Récupération du rôle sécurisé depuis la table "profiles"
+      if (authData.user) {
+        const { data: profileData } = await supabase
+          .from('profiles')
+          .select('role')
+          .eq('id', authData.user.id)
+          .single();
+
+        const role = profileData?.role || 'STAFF'; 
+        onLoginSuccess(role);
+      }
+    } catch (err) {
+      console.error('Erreur lors de la connexion:', err);
+      setError(language === 'fr' ? 'Une erreur inattendue est survenue.' : 'An unexpected error occurred.');
+    } finally {
+      setIsLoading(false);
+    }
   };
 
-  // Fonction utilitaire pour remplir rapidement les identifiants de démo
   const fillDemoAccount = (demoEmail: string) => {
     setEmail(demoEmail);
     setPassword('motonomad2026');
+    setError(null); // On efface l'erreur si l'utilisateur clique sur un compte de démo
   };
 
   return (
@@ -80,6 +101,16 @@ export const Login: React.FC<LoginProps> = ({ onLoginSuccess, onNavigateRegister
           </div>
 
           <form onSubmit={handleLogin} className="space-y-5">
+            
+            {/* --- NOUVEAU DESIGN D'ERREUR ICI --- */}
+            {error && (
+              <div className="flex items-center gap-3 p-4 rounded-xl bg-red-500/10 border border-red-500/20 text-red-400 animate-fadeIn">
+                <AlertCircle className="w-5 h-5 flex-shrink-0" />
+                <p className="text-sm font-medium">{error}</p>
+              </div>
+            )}
+            {/* ----------------------------------- */}
+
             <div className="space-y-1.5">
               <label className="text-xs font-bold text-zinc-300 uppercase tracking-wider">Email</label>
               <div className="relative">
@@ -88,9 +119,14 @@ export const Login: React.FC<LoginProps> = ({ onLoginSuccess, onNavigateRegister
                   type="email" 
                   required
                   value={email}
-                  onChange={(e) => setEmail(e.target.value)}
+                  onChange={(e) => {
+                    setEmail(e.target.value);
+                    if (error) setError(null); // Efface l'erreur dès qu'on tape à nouveau
+                  }}
                   placeholder="admin@motonomad.ma"
-                  className="w-full pl-11 pr-4 py-3 bg-[#1A1A1A] border border-[#333333] rounded-xl text-white focus:outline-none focus:border-[#D4A017] transition-colors"
+                  className={`w-full pl-11 pr-4 py-3 bg-[#1A1A1A] border rounded-xl text-white focus:outline-none transition-colors ${
+                    error ? 'border-red-500/50 focus:border-red-500' : 'border-[#333333] focus:border-[#D4A017]'
+                  }`}
                 />
               </div>
             </div>
@@ -108,9 +144,14 @@ export const Login: React.FC<LoginProps> = ({ onLoginSuccess, onNavigateRegister
                   type="password" 
                   required
                   value={password}
-                  onChange={(e) => setPassword(e.target.value)}
+                  onChange={(e) => {
+                    setPassword(e.target.value);
+                    if (error) setError(null); // Efface l'erreur dès qu'on tape à nouveau
+                  }}
                   placeholder="••••••••"
-                  className="w-full pl-11 pr-4 py-3 bg-[#1A1A1A] border border-[#333333] rounded-xl text-white focus:outline-none focus:border-[#D4A017] transition-colors"
+                  className={`w-full pl-11 pr-4 py-3 bg-[#1A1A1A] border rounded-xl text-white focus:outline-none transition-colors ${
+                    error ? 'border-red-500/50 focus:border-red-500' : 'border-[#333333] focus:border-[#D4A017]'
+                  }`}
                 />
               </div>
             </div>
